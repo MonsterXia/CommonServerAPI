@@ -3,17 +3,20 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"deploy": "wrangler deploy",
+		"deploy": "prisma generate && wrangler deploy",
 		"start": "wrangler dev",
 		"dev": "wrangler dev",
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {
 		"@types/node": "^25.2.3",
+		"prisma": "^7.4.0",
 		"typescript": "^5.0.4",
 		"wrangler": "^4.65.0"
 	},
 	"dependencies": {
+		"@prisma/adapter-d1": "^7.4.0",
+		"@prisma/client": "^7.4.0",
 		"hono": "^4.11.9"
 	}
 }

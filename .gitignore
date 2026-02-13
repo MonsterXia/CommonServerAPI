@@ -14,3 +14,4 @@ build
 
 # Secret files
 .env*
+/src/generated/prisma

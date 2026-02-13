@@ -3,6 +3,8 @@ import { bearerAuth } from "hono/bearer-auth";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
+import { PrismaClient } from './generated/prisma/';
+import { PrismaD1 } from '@prisma/adapter-d1';
 
 type Bindings = {
 	// Basic workflow binding
@@ -39,16 +41,19 @@ app.get("/", async (c) => {
 	return c.json({ message: "Common Server API is running." });
 });
 
-app.post("/api/all", async (c) => {
+app.get("/admins", async (c) => {
 	try {
-		let { query, params } = await c.req.json();
-		let stmt = c.env.DB.prepare(query);
-		if (params) {
-			stmt = stmt.bind(params);
-		}
+		const adapter = new PrismaD1(c.env.DB);
+    	const prisma = new PrismaClient({ adapter });
+		const admins = await prisma.admin.findMany();
+		// let { query, params } = await c.req.json();
+		// let stmt = c.env.DB.prepare(query);
+		// if (params) {
+		// 	stmt = stmt.bind(...params);
+		// }
 
-		const result = await stmt.run();
-		return c.json(result);
+		// const result = await stmt.run();
+		return c.json(admins);
 	} catch (err) {
 		return c.json({ error: `Failed to run query: ${err}` }, 500);
 	}
