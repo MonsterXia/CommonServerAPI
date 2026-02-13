@@ -1,0 +1,16 @@
+# IDE files
+.idea
+.vscode
+
+# OS files
+node_modules
+
+# Wrangler
+.wrangler
+
+# Local Build files
+dist
+build
+
+# Secret files
+.env*

@@ -1,0 +1,19 @@
+{
+	"name": "common-server-api",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"start": "wrangler dev",
+		"dev": "wrangler dev",
+		"cf-typegen": "wrangler types"
+	},
+	"devDependencies": {
+		"@types/node": "^25.2.3",
+		"typescript": "^5.0.4",
+		"wrangler": "^4.65.0"
+	},
+	"dependencies": {
+		"hono": "^4.11.9"
+	}
+}
