@@ -5,6 +5,11 @@ import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { PrismaClient } from './generated/prisma/';
 import { PrismaD1 } from '@prisma/adapter-d1';
+import { cors } from 'hono/cors'
+import { csrf } from 'hono/csrf'
+import { allowOrigins } from "./common/config/origin";
+import router from "./router/router";
+
 
 type Bindings = {
 	// Basic workflow binding
@@ -32,39 +37,54 @@ export class CommonServerAPI extends WorkflowEntrypoint<Bindings> {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.use("*", prettyJSON(), logger(), async (c, next) => {
-	const auth = bearerAuth({ token: c.env.PUBLIC_ACCESS_KEY });
-	return auth(c, next);
-});
+app.use('*',
+	logger(),
+    cors({
+        origin: allowOrigins,
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization'],
+        credentials: true,
+    }),
+    csrf({
+        origin: allowOrigins,
+    }),
+)
+
+app.route('/', router);
+
+// app.use("*", prettyJSON(), logger(), async (c, next) => {
+// 	const auth = bearerAuth({ token: c.env.PUBLIC_ACCESS_KEY });
+// 	return auth(c, next);
+// });
 
 app.get("/", async (c) => {
-	return c.json({ message: "Common Server API is running." });
+	return c.json({ message: "Common Server API is running." }, 200);
 });
 
-app.get("/admins", async (c) => {
-	try {
-		const adapter = new PrismaD1(c.env.DB);
-    	const prisma = new PrismaClient({ adapter });
-		const admins = await prisma.admin.findMany();
-		// let { query, params } = await c.req.json();
-		// let stmt = c.env.DB.prepare(query);
-		// if (params) {
-		// 	stmt = stmt.bind(...params);
-		// }
+// app.get("/admins", async (c) => {
+// 	try {
+// 		const adapter = new PrismaD1(c.env.DB);
+//     	const prisma = new PrismaClient({ adapter });
+// 		const admins = await prisma.admin.findMany();
+// 		// let { query, params } = await c.req.json();
+// 		// let stmt = c.env.DB.prepare(query);
+// 		// if (params) {
+// 		// 	stmt = stmt.bind(...params);
+// 		// }
 
-		// const result = await stmt.run();
-		return c.json(admins);
-	} catch (err) {
-		return c.json({ error: `Failed to run query: ${err}` }, 500);
-	}
-});
+// 		// const result = await stmt.run();
+// 		return c.json(admins);
+// 	} catch (err) {
+// 		return c.json({ error: `Failed to run query: ${err}` }, 500);
+// 	}
+// });
 
-app.post("/api/exec", async (c) => {
-	return c.text("/api/exec endpoint");
-});
+// app.post("/api/exec", async (c) => {
+// 	return c.text("/api/exec endpoint");
+// });
 
-app.post("/api/batch", async (c) => {
-	return c.text("/api/batch endpoint");
-});
+// app.post("/api/batch", async (c) => {
+// 	return c.text("/api/batch endpoint");
+// });
 
 export default app;
