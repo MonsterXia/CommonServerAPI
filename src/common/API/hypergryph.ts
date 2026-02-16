@@ -1,7 +1,18 @@
-import { HypergryphCommonLoginResponse, HypergryphSendPhoneCodePayload, HypergryphTokenByPasswordRequestPayload, HypergryphTokenByPhoneCodeRequestPayload, UserToken } from "../../model/game/hypergraph/user";
-import { hypergryphEndpoints } from "../config/endpoints";
-import { contentJsonHeader } from "../constant/requestHeader";
-import gatewayManager from "../gateway/gatewayManager"
+import {
+    HypergryphCommonLoginResponse,
+    HypergryphGrantOAuthTokenRequestPayload,
+    HypergryphSendPhoneCodePayload,
+    HypergryphTokenByPasswordRequestPayload,
+    HypergryphTokenByPhoneCodeRequestPayload,
+    HypergryphTokenValidateRequestParams,
+    UserInfo,
+    UserOAuth,
+    UserToken
+} from '../../model/game/hypergraph/user';
+import { hypergryphEndpoints } from '../config/endpoints';
+import { skLandAppId } from '../constant/hypergryph';
+import { contentJsonHeader } from '../constant/requestHeader';
+import gatewayManager from '../gateway/gatewayManager'
 
 const gatewayManagerInstance = gatewayManager.getInstance();
 
@@ -11,16 +22,30 @@ export const hypergryphSendPhoneCodeAPI = async (data: HypergryphSendPhoneCodePa
         ...data,
         type: 2
     }
-    return await gatewayManagerInstance.post<HypergryphCommonLoginResponse>(url, payload, { headers: {...contentJsonHeader} });
+    return await gatewayManagerInstance.post<HypergryphCommonLoginResponse>(url, payload, { headers: { ...contentJsonHeader } });
 }
 
 export const hypergryphTokenByPhoneCodeAPI = async (data: HypergryphTokenByPhoneCodeRequestPayload): Promise<UserToken> => {
     const url = gatewayManagerInstance.buildHypergryphURL(hypergryphEndpoints.tokenByPhoneCode);
-    return await gatewayManagerInstance.post<UserToken>(url, data, { headers: {...contentJsonHeader} });
+    return await gatewayManagerInstance.post<UserToken>(url, data, { headers: { ...contentJsonHeader } });
 }
 
 export const hypergryphTokenByPasswordAPI = async (data: HypergryphTokenByPasswordRequestPayload): Promise<UserToken> => {
     const url = gatewayManagerInstance.buildHypergryphURL(hypergryphEndpoints.tokenByPassword);
-    const response = await gatewayManagerInstance.post<UserToken>(url, data, { headers: {...contentJsonHeader} });
-    return response;
+    return await gatewayManagerInstance.post<UserToken>(url, data, { headers: { ...contentJsonHeader } });
+}
+
+export const hypergryphTokenValidateAPI = async (params: HypergryphTokenValidateRequestParams): Promise<UserInfo> => {
+    const url = gatewayManagerInstance.buildHypergryphURL(hypergryphEndpoints.tokenValidation);
+    return await gatewayManagerInstance.get<UserInfo>(url, params);
+}
+
+export const hypergryphGrantOAuthTokenAPI = async (data: HypergryphGrantOAuthTokenRequestPayload, appCode: string = skLandAppId): Promise<UserOAuth> => {
+    const payload = {
+        ...data,
+        appCode,
+        type: 0
+    }
+    const url = gatewayManagerInstance.buildHypergryphURL(hypergryphEndpoints.grantOAuthToken);
+    return await gatewayManagerInstance.post<UserOAuth>(url, payload, { headers: { ...contentJsonHeader } });
 }

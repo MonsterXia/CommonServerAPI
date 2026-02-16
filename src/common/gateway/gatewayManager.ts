@@ -13,7 +13,7 @@ class gatewayManager {
     public static getInstance(): gatewayManager {
         if (!gatewayManager._instance) {
             gatewayManager._instance = new gatewayManager();
-            console.log("Gateway Manager initialized");
+            console.log('Gateway Manager initialized');
         }
         return gatewayManager._instance;
     }
@@ -39,7 +39,6 @@ class gatewayManager {
 
         return `${baseURL}${endpoint}`;
     }
-
 
     public async get<T>(url: string, params?: any, config?: any): Promise<T> {
         const response = await this._axiosInstance.get<T>(url, { params, ...config });

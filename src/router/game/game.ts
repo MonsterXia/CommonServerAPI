@@ -1,5 +1,5 @@
-import { Hono } from "hono";
-import hypergryphRouter from "./hypergryph/hypergraph";
+import { Hono } from 'hono';
+import hypergryphRouter from './hypergryph/hypergraph';
 
 const gameRouter = new Hono();
 

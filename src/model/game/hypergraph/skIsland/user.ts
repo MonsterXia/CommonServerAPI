@@ -1,42 +1,64 @@
-export interface UserTokenValidResponse {
-    data: {
-        hgId: string
-        phone: string
-        email: string
-        identityNum: string
-        identityName: string
-        nickName: string,
-        isMinor: boolean,
-        isLatestUserAgreement: boolean
-    },
-    msg: string
-    status: number
-    type: string
+export interface SkLandGetCredRequestPayload {
+    code: string;
 }
 
-export interface UserOAuth {
-    status: number;
-    type: string;
-    msg: string;
-    data: {
-        code: string;
-        uid: string;
-    }
-}
-
-export interface Cred {
+export interface SkLandCredValidateRequestParams {
     cred: string;
-    userId: string;
+}
+
+export interface SKLandAccountsRequestParams {
+    cred: string;
     token: string;
 }
 
-export interface UserCred {
+export interface SkLandCommonResponse {
     code: number;
     message: string;
-    data: Cred
 }
 
-export interface GameUserRole {
+export interface SkLandCredResponse extends SkLandCommonResponse {
+    data: {
+        cred: string;
+        userId: string;
+        token: string;
+    }
+}
+
+export interface SkLandCredValidateResponse extends SkLandCommonResponse {
+    data: {
+        policyList: any[];
+        isNewUser: boolean;
+        nickName: string;
+    }
+}
+
+export interface SklandAccountListResponse extends SkLandCommonResponse {
+    data: {
+        list: GameAccount[];
+    }
+}
+
+export interface GameAccount {
+    appCode: string;
+    appName: string;
+    bindingList: BindingRole[];
+}
+
+export interface BindingRole {
+    uid: string;
+    isOfficial: boolean;
+    isDefault: boolean;
+    channelMasterId: string;
+    channelName: string;
+    nickName: string;
+    isDelete: boolean;
+    gameName: string;
+    gameId: number;
+    roles: GameRole[];
+    defaultRole: GameRole | null;
+}
+
+export interface GameRole {
     serverId: string;
     roleId: string;
     nickname: string;
@@ -47,47 +69,25 @@ export interface GameUserRole {
     serverName: string;
 }
 
-export interface GameUser {
-    appCode: string;
-    appName: string;
-    bindingList: [
-        {
-            uid: string;
-            isOfficial: boolean;
-            isDefault: true;
-            channelMasterId: string;
-            channelName: string;
-            nickName: string;
-            isDelete: boolean;
-            gameName: string;
-            gameId: number;
-            roles: GameUserRole[];
-            defaultRole: GameUserRole | null;
-        }
-    ]
+export interface Cred {
+    cred: string;
+    userId: string;
+    token: string;
 }
 
-
-export interface UserInfoResponse {
-    code: number;
-    message: string;
-    data: {
-        list: GameUser[]
-    }
-}
-
-export interface UserInfo {
+export interface SKLandCheckInRequestPayload {
     appCode: string;
-    uid?: string;
-    roleId?: string;
-    channelMasterId?: string;
-    serverId?: string;
     nickName: string;
+    uid: string;
+    gameId: string;
 }
 
-export interface CheckInResultResponse {
-    code: number;
-    message: string;
+export interface SKLandCheckInAPIRequestParams {
+    uid: string;
+    gameId: string;
+}
+
+export interface SKLandCheckInResultResponse extends SkLandCommonResponse {
     data: {
         ts: string;
         awards?: ArknightsCheckInAward[]

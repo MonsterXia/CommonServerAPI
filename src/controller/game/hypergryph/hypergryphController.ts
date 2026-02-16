@@ -1,8 +1,23 @@
-import { Context } from "hono";
-import { hypergryphTokenByPasswordAPI } from "../../../common/API/hypergryph";
-import { HypergryphSendPhoneCodePayload, HypergryphTokenByPasswordRequestPayload, HypergryphTokenByPhoneCodeRequestPayload } from "../../../model/game/hypergraph/user";
-import { fetchHypergryphPhoneCode, fetchHypergryphTokenByPassword, fetchHypergryphTokenByPhoneCode, sendPhoneCodeParser, tokenByPasswordParser, tokenByPhoneCodeParser } from "../../../service/game/hypergryph/loginService";
-import { buildContextJson, bussinessStatusCode } from "../../../util/hono";
+import { Context } from 'hono';
+import { 
+    HypergryphSendPhoneCodePayload, 
+    HypergryphTokenByPasswordRequestPayload, 
+    HypergryphTokenByPhoneCodeRequestPayload 
+} from '../../../model/game/hypergraph/user';
+import { 
+    fetchHypergryphOauthToken, 
+    fetchHypergryphPhoneCode, 
+    fetchHypergryphTokenByPassword, 
+    fetchHypergryphTokenByPhoneCode, 
+    fetchHypergryphTokenValidate, 
+    getHypergryphOauthTokenParser, 
+    sendPhoneCodeParser, 
+    tokenByPasswordParser, 
+    tokenByPhoneCodeParser, 
+    tokenValidateParser 
+} from '../../../service/game/hypergryph/loginService';
+import { buildContextJson, bussinessStatusCode } from '../../../util/hono';
+
 
 class hypergryphController {
     public static getPhoneCode = async (c: Context) => {
@@ -38,6 +53,30 @@ class hypergryphController {
             return buildContextJson(c, 'Get Hypergryph Token By Password Success', res)
         } catch (e) {
             return buildContextJson(c, 'Get Hypergryph Token By Password Error', e, bussinessStatusCode.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+    public static tokenValidate = async (c: Context) => {
+        try {
+            const params = c.req.query();
+            const formatedInput = tokenValidateParser(params);
+
+            const res = await fetchHypergryphTokenValidate(formatedInput);
+            return buildContextJson(c, 'Hypergryph Token Validate Success', res)
+        } catch (e) {
+            return buildContextJson(c, 'Hypergryph Token Validate Error', e, bussinessStatusCode.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+    public static grantOAuthToken = async (c: Context) => {
+        try {
+            const data = await c.req.json();
+            const formatedInput = getHypergryphOauthTokenParser(data);
+
+            const res = await fetchHypergryphOauthToken(formatedInput);
+            return buildContextJson(c, 'Hypergryph Grant OAuth Token Success', res)
+        } catch (e) {
+            return buildContextJson(c, 'Hypergryph Grant OAuth Token Error', e, bussinessStatusCode.INTERNAL_SERVER_ERROR)
         }
     }
 }
