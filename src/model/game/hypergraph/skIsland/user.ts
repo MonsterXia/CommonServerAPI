@@ -1,12 +1,3 @@
-export interface UserToken {
-    data: {
-        token: string;
-    };
-    msg: string;
-    status: number;
-    type: string;
-}
-
 export interface UserTokenValidResponse {
     data: {
         hgId: string
