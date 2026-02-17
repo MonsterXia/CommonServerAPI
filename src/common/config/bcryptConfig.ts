@@ -1,0 +1,1 @@
+export const bcryptSaltRounds = 12;

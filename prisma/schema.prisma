@@ -19,3 +19,24 @@ model Admin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model User {
+    id                Int                @id @default(autoincrement())
+    username          String             @unique
+    email             String?
+    phone             String?
+    password          String
+    hypergryphAccount HypergryphAccount?
+    isAdmin           Boolean            @default(false)
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+}
+
+model HypergryphAccount {
+    id        Int      @id @default(autoincrement())
+    userId    Int      @unique
+    token     String
+    user      User     @relation(fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}

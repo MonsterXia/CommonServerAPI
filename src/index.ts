@@ -3,8 +3,6 @@ import { bearerAuth } from "hono/bearer-auth";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
-import { PrismaClient } from './generated/prisma/';
-import { PrismaD1 } from '@prisma/adapter-d1';
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { allowOrigins } from "./common/config/origin";
@@ -21,6 +19,7 @@ type Bindings = {
 	// environment variables
 	API_KEY: string;
 	PUBLIC_ACCESS_KEY: string;
+	JWT_SECRET: string;
 };
 
 export class CommonServerAPI extends WorkflowEntrypoint<Bindings> {
@@ -39,15 +38,21 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('*',
 	logger(),
-    cors({
-        origin: allowOrigins,
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Authorization'],
-        credentials: true,
-    }),
-    csrf({
-        origin: allowOrigins,
-    }),
+	cors({
+		origin: allowOrigins,
+		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowHeaders: ['Content-Type', 'Authorization'],
+		credentials: true,
+	}),
+	async (c, next) => {
+		if (c.req.method === 'POST' && c.req.path === '/user/logout') {
+			await next();
+			return
+		}
+		return csrf({
+			origin: allowOrigins,
+		})(c, next)
+	}
 )
 
 app.route('/', router);

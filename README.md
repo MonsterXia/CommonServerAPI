@@ -34,7 +34,10 @@ npx wrangler d1 migrations create common-server-db create_admin_table
 ```
 Write migration file
 ```bash
+# create
 npx prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script --output migrations/0001_create_admin_table.sql
+# update
+npx prisma migrate diff --from-schema ./prisma/differ/schema_old.prisma --to-schema ./prisma/differ/schema_new.prisma --script --output migrations/0002_create_user_table.sql
 ```
 Apply migration
 ```bash

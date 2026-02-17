@@ -1,11 +1,11 @@
+import { getGatewayManager } from '../../lib/gatewayManager';
 import { SklandAccountListResponse, SKLandAccountsRequestParams, SKLandCheckInAPIRequestParams, SKLandCheckInRequestPayload, SKLandCheckInResultResponse, SkLandCredResponse, SkLandCredValidateRequestParams, SkLandCredValidateResponse, SkLandGetCredRequestPayload } from '../../model/game/hypergraph/skIsland/user';
 import { getSkLandSignHeader } from '../../util/skLand';
 import { sklandEndpoints } from '../config/endpoints';
 import { contentJsonHeader } from '../constant/requestHeader';
-import gatewayManager from '../gateway/gatewayManager'
 import axios from 'axios';
 
-const gatewayManagerInstance = gatewayManager.getInstance();
+const gatewayManagerInstance = getGatewayManager();
 
 export const skLandGetCredAPI = async (data: SkLandGetCredRequestPayload): Promise<SkLandCredResponse> => {
     const url = gatewayManagerInstance.buildSKLandURL(sklandEndpoints.getCred);

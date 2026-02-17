@@ -1,3 +1,4 @@
+import { getGatewayManager } from '../../lib/gatewayManager';
 import {
     HypergryphCommonLoginResponse,
     HypergryphGrantOAuthTokenRequestPayload,
@@ -12,9 +13,8 @@ import {
 import { hypergryphEndpoints } from '../config/endpoints';
 import { skLandAppId } from '../constant/hypergryph';
 import { contentJsonHeader } from '../constant/requestHeader';
-import gatewayManager from '../gateway/gatewayManager'
 
-const gatewayManagerInstance = gatewayManager.getInstance();
+const gatewayManagerInstance = getGatewayManager();
 
 export const hypergryphSendPhoneCodeAPI = async (data: HypergryphSendPhoneCodePayload): Promise<HypergryphCommonLoginResponse> => {
     const url = gatewayManagerInstance.buildHypergryphURL(hypergryphEndpoints.sendSmsCode);
