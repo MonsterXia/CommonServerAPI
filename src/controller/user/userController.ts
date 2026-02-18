@@ -44,7 +44,6 @@ class userController {
         try {
             const input = await c.req.json();
             const parserResult = userPasswordLoginParser(input);
-            console.log('userLogin parserResult:', parserResult);
             if (!parserResult.success) {
                 return buildContextJson(c, parserResult);
             }

@@ -10,8 +10,6 @@ export interface JWTPayload extends Record<string, unknown>{
 
 const getJWTSecret = (c: Context): string => {
   const secret = c.env?.JWT_SECRET;
-  console.log('here')
-  console.log(c.env);
   if (!secret) {
     throw new Error('JWT_SECRET is not configured');
   }

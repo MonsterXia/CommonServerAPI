@@ -145,7 +145,6 @@ export const userPasswordLoginService = async (
             bussinessStatusCode.FORBIDDEN
         )
         const exist = await checkUsernameExistService(c, user.username);
-        console.log('checkUsernameExistService result:', exist);
         if (!exist.success) {
             return exist;
         }
