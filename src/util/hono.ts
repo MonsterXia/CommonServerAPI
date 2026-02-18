@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
+import { StandardServerResult } from '../model/util/hono';
 
 export const bussinessStatusCode: Record<string, ContentfulStatusCode> = {
     CONTINUE: 100,
@@ -66,21 +67,48 @@ export const bussinessStatusCode: Record<string, ContentfulStatusCode> = {
 
 export const buildContextJson = (
     c: Context,
-    message: string,
-    data: any,
-    httpStatus: ContentfulStatusCode = bussinessStatusCode.OK
+    standardServerResult: StandardServerResult<any>
 ) => {
-    if (httpStatus >= 400) {
+    if (standardServerResult.httpStatus >= 400) {
         return c.json({
-            message,
-            error: data.toString(),
-            httpStatus
-        }, httpStatus);
+            message: standardServerResult.message,
+            error: standardServerResult.error || 'Unknown error',
+            httpStatus: standardServerResult.httpStatus
+        }, standardServerResult.httpStatus);
     } else {
         return c.json({
-            message,
-            data,
-            httpStatus
-        }, httpStatus);
+            message: standardServerResult.message,
+            data: standardServerResult.data,
+            httpStatus: standardServerResult.httpStatus
+        }, standardServerResult.httpStatus);
     }
+}
+
+export const buildErrorContextJson = (
+    c: Context,
+    message: string,
+    error: any,
+    httpStatus: ContentfulStatusCode = bussinessStatusCode.INTERNAL_SERVER_ERROR
+) => {
+    return c.json({
+        message,
+        error,
+        httpStatus
+    }, httpStatus);
+}
+
+export const buildStandardServerResponse = <T>(
+    success: boolean,
+    message: string = '',
+    data?: T,
+    error?: any,
+    httpStatus: ContentfulStatusCode = bussinessStatusCode.OK
+): StandardServerResult<T> => {
+    return {
+        success,
+        message,
+        data,
+        error,
+        httpStatus
+    };
 }

@@ -11,62 +11,135 @@ import {
     SkLandCredValidateResponse,
     SkLandGetCredRequestPayload
 } from "../../../../model/game/hypergraph/skIsland/user";
+import { StandardServerResult } from "../../../../model/util/hono";
+import { buildStandardServerResponse, bussinessStatusCode } from "../../../../util/hono";
 
-export const getCredParser = (data: any): SkLandGetCredRequestPayload => {
+export const getCredParser = (data: any): StandardServerResult<SkLandGetCredRequestPayload | null> => {
     if (!data.code) {
-        throw new Error('Missing code');
+        return buildStandardServerResponse(
+            false,
+            'Missing code',
+            null,
+            'Missing code in request payload',
+            bussinessStatusCode.BAD_REQUEST,
+        )
     }
-    return {
-        code: data.code.toString()
-    }
+    return buildStandardServerResponse(
+        true,
+        'Parse request payload successfully',
+        {
+            code: data.code.toString()
+        },
+        bussinessStatusCode.OK
+    )
 }
 
-export const validateCredParser = (data: any): SkLandCredValidateRequestParams => {
+export const validateCredParser = (data: any): StandardServerResult<SkLandCredValidateRequestParams | null> => {
     if (!data.cred) {
-        throw new Error('Missing cred');
+        return buildStandardServerResponse(
+            false,
+            'Missing cred',
+            null,
+            'Missing cred in request payload',
+            bussinessStatusCode.BAD_REQUEST
+        )
     }
-    return {
-        cred: data.cred.toString()
-    }
+    return buildStandardServerResponse(
+        true,
+        'Parse request payload successfully',
+        {
+            cred: data.cred.toString()
+        },
+        bussinessStatusCode.OK
+    )
 }
 
-export const getHypergryphGameAccountsParser = (data: any): SKLandAccountsRequestParams => {
+export const getHypergryphGameAccountsParser = (data: any): StandardServerResult<SKLandAccountsRequestParams | null> => {
     if (!data.cred || !data.token) {
-        throw new Error('Missing cred or token');
+        return buildStandardServerResponse(
+            false,
+            'Missing cred or token',
+            null,
+            'Missing cred or token in request payload',
+            bussinessStatusCode.BAD_REQUEST
+        )
     }
-    return {
-        cred: data.cred.toString(),
-        token: data.token.toString()
-    }
+    return buildStandardServerResponse(
+        true,
+        'Parse request payload successfully',
+        {
+            cred: data.cred.toString(),
+            token: data.token.toString()
+        },
+        bussinessStatusCode.OK
+    )
 }
 
-export const fetchSkLandCred = async (data: SkLandGetCredRequestPayload): Promise<Cred> => {
+export const fetchSkLandCred = async (data: SkLandGetCredRequestPayload): Promise<StandardServerResult<Cred | null>> => {
     try {
         const res = await skLandGetCredAPI(data);
         if (res.code === 0) {
-            return res.data;
+            return buildStandardServerResponse(
+                true,
+                'Get cred successfully',
+                res.data,
+                bussinessStatusCode.OK
+            )
         } else {
-            throw new Error(`SKLand Get Cred Failed: ${res.message}`);
+            return buildStandardServerResponse(
+                false,
+                'SKLand Get Cred Failed',
+                null,
+                res.message,
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            )
         }
     } catch (e) {
-        throw new Error(`SKLand Get Cred Error: ${e}`);
+        return buildStandardServerResponse(
+            false,
+            'SKLand Get Cred Error',
+            null,
+            e instanceof Error ? e.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        )
     }
 }
 
-export const fetchSkLandCredValidate = async (params: SkLandCredValidateRequestParams): Promise<SkLandCredValidateResponse["data"]> => {
+export const fetchSkLandCredValidate = async (
+    params: SkLandCredValidateRequestParams
+): Promise<StandardServerResult<SkLandCredValidateResponse["data"] | null>> => {
     try {
         const res = await skLandCredValidateAPI(params);
         if (res.code === 0) {
-            return res.data;
+            return buildStandardServerResponse(
+                true,
+                'Get cred successfully',
+                res.data,
+                bussinessStatusCode.OK
+            )
         } else {
-            throw new Error(`SKLand Cred Validate Failed: ${res.message}`);
+            return buildStandardServerResponse(
+                false,
+                'SKLand Cred Validate Failed',
+                null,
+                res.message,
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            )
         }
     } catch (e) {
-        throw new Error(`SKLand Cred Validate Error: ${e}`);
+        return buildStandardServerResponse(
+            false,
+            'SKLand Cred Validate Error',
+            null,
+            e instanceof Error ? e.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        )
     }
 }
 
-export const fetchSkLandGameAccounts = async (params: SKLandAccountsRequestParams): Promise<SKLandCheckInRequestPayload[]> => {
+export const fetchSkLandGameAccounts = async (
+    params: SKLandAccountsRequestParams
+): Promise<StandardServerResult<SKLandCheckInRequestPayload[] | null>> => {
     try {
         const res = await skLandGameAccountsAPI(params);
         if (res.code === 0) {
@@ -90,12 +163,29 @@ export const fetchSkLandGameAccounts = async (params: SKLandAccountsRequestParam
                 return [];
             });
 
-            return simpleAccounts;
+            return buildStandardServerResponse(
+                true,
+                'Get game accounts successfully',
+                simpleAccounts,
+                bussinessStatusCode.OK
+            )
         } else {
-            throw new Error(`SKLand Game Accounts Failed: ${res.message}`);
+            return buildStandardServerResponse(
+                false,
+                'SKLand Game Accounts Failed',
+                null,
+                res.message,
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            )
         }
     } catch (e) {
-        throw new Error(`SKLand Game Accounts Error: ${e}`);
+        return buildStandardServerResponse(
+            false,
+            'SKLand Game Accounts Error',
+            null,
+            e instanceof Error ? e.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        )
     }
 }
 
