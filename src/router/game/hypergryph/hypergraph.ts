@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import endfieldRouter from './endfield/endfield';
 import skLandRouter from './skLand/skLand';
-import hypergryphController from '../../../controller/game/hypergryph/hypergryphController';
+import hypergryphController from '@/controller/game/hypergryph/hypergryphController';
 
 const hypergryphRouter = new Hono();
 

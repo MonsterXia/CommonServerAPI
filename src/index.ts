@@ -5,11 +5,11 @@ import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
-import { allowOrigins } from "./common/config/origin";
-import router from "./router/router";
+import { allowOrigins } from "@/common/config/origin";
+import router from "@/router/router";
 
 
-type Bindings = {
+export type Bindings = {
 	// Basic workflow binding
 	CommonServerAPI: Workflow;
 

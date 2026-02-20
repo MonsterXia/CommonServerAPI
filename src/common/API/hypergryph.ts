@@ -1,4 +1,4 @@
-import { getGatewayManager } from '../../lib/gatewayManager';
+import { getGatewayManager } from '@/lib/gatewayManager';
 import {
     HypergryphCommonLoginResponse,
     HypergryphGrantOAuthTokenRequestPayload,
@@ -9,7 +9,7 @@ import {
     UserInfo,
     UserOAuth,
     UserToken
-} from '../../model/game/hypergraph/user';
+} from '@/model/game/hypergraph/user';
 import { hypergryphEndpoints } from '../config/endpoints';
 import { skLandAppId } from '../constant/hypergryph';
 import { contentJsonHeader } from '../constant/requestHeader';

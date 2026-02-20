@@ -1,6 +1,6 @@
 import { Context, Next } from 'hono';
-import { getCurrentUser } from '../lib/jwt';
-import { buildContextJson, bussinessStatusCode } from '../util/hono';
+import { getCurrentUser } from '@/lib/jwt';
+import { buildErrorContextJson, bussinessStatusCode } from '@/util/hono';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -14,7 +14,12 @@ export const authMiddleware = async (c: Context, next: Next) => {
   const user = await getCurrentUser(c);
   
   if (!user) {
-    return buildContextJson(c, "Unauthorized, token is missing or invalid.", null, bussinessStatusCode.UNAUTHORIZED);
+    return buildErrorContextJson(
+      c, 
+      "Unauthorized, token is missing or invalid.", 
+      null, 
+      bussinessStatusCode.UNAUTHORIZED
+    );
   }
   
   c.set('user', {

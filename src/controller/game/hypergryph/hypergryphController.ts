@@ -1,10 +1,5 @@
 import { Context } from 'hono';
 import {
-    HypergryphSendPhoneCodePayload,
-    HypergryphTokenByPasswordRequestPayload,
-    HypergryphTokenByPhoneCodeRequestPayload
-} from '../../../model/game/hypergraph/user';
-import {
     fetchHypergryphOauthToken,
     fetchHypergryphPhoneCode,
     fetchHypergryphTokenByPassword,
@@ -15,8 +10,8 @@ import {
     tokenByPasswordParser,
     tokenByPhoneCodeParser,
     tokenValidateParser
-} from '../../../service/game/hypergryph/loginService';
-import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '../../../util/hono';
+} from '@/service/game/hypergryph/loginService';
+import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '@/util/hono';
 
 
 class hypergryphController {

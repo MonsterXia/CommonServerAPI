@@ -1,6 +1,6 @@
-import { getGatewayManager } from '../../lib/gatewayManager';
+import { getGatewayManager } from '@/lib/gatewayManager';
 import { SklandAccountListResponse, SKLandAccountsRequestParams, SKLandCheckInAPIRequestParams, SKLandCheckInRequestPayload, SKLandCheckInResultResponse, SkLandCredResponse, SkLandCredValidateRequestParams, SkLandCredValidateResponse, SkLandGetCredRequestPayload } from '../../model/game/hypergraph/skIsland/user';
-import { getSkLandSignHeader } from '../../util/skLand';
+import { getSkLandSignHeader } from '@/util/skLand';
 import { sklandEndpoints } from '../config/endpoints';
 import { contentJsonHeader } from '../constant/requestHeader';
 import axios from 'axios';

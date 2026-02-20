@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
-import { StandardServerResult } from '../model/util/hono';
+import { StandardServerResult } from '@/model/util/hono';
 
 export const bussinessStatusCode: Record<string, ContentfulStatusCode> = {
     CONTINUE: 100,

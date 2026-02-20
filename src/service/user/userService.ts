@@ -1,11 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { Context } from 'hono';
-import { UserPasswordLoginRequestPayload, UserRegisterRequestPayload } from "../../model/user/user";
-import { bcryptSaltRounds } from '../../common/config/bcryptConfig';
-import { getPrismaClient } from '../../lib/prisma';
-import { clearAuthCookie, generateToken, setAuthCookie } from '../../lib/jwt';
-import { buildContextJson, buildStandardServerResponse, bussinessStatusCode } from '../../util/hono';
-import { StandardServerResult } from '../../model/util/hono';
+import { UserPasswordLoginRequestPayload, UserRegisterRequestPayload } from "@/model/user/user";
+import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
+import { getPrismaClient } from '@/lib/prisma';
+import { clearAuthCookie, generateToken, setAuthCookie } from '@/lib/jwt';
+import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
+import { StandardServerResult } from '@/model/util/hono';
 
 export const userRegisterParser = (data: any): StandardServerResult<UserRegisterRequestPayload | null> => {
     if (!data.username || !data.password) {
@@ -17,6 +17,33 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
             bussinessStatusCode.BAD_REQUEST
         )
     }
+
+    if (data.password.toString()) {
+        const passwordStr = data.password.toString();
+        if (passwordStr.length < 6 || passwordStr.length > 128) {
+            return buildStandardServerResponse(
+                false,
+                'Password length invalid',
+                null,
+                'Password must be between 6 and 128 characters long',
+                bussinessStatusCode.BAD_REQUEST
+            )
+        }
+        const hasUpperCase = /[A-Z]/.test(passwordStr);
+        const hasLowerCase = /[a-z]/.test(passwordStr);
+        // const hasDigit = /\d/.test(passwordStr);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(passwordStr);
+        if (!hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+            return buildStandardServerResponse(
+                false,
+                'Password complexity insufficient',
+                null,
+                'Password must contain at least one uppercase letter, one lowercase letter, and one special character',
+                bussinessStatusCode.BAD_REQUEST
+            )
+        }
+    }
+
     return buildStandardServerResponse(
         true,
         'Parse request payload successfully',
@@ -116,7 +143,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
         })
         return buildStandardServerResponse(
             user !== null,
-            user !== null? 'Username exists' : 'Username does not exist',
+            user !== null ? 'Username exists' : 'Username does not exist',
             user !== null,
             null,
             bussinessStatusCode.OK
@@ -133,7 +160,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
 }
 
 export const userPasswordLoginService = async (
-    c: Context, 
+    c: Context,
     user: UserPasswordLoginRequestPayload
 ): Promise<StandardServerResult<any>> => {
     try {
@@ -206,6 +233,38 @@ export const userLogoutService = async (
 }
 
 export const getCurrentUserService = async (c: Context): Promise<StandardServerResult<any>> => {
+    const user = c.get('user');
+    const failedResponse = buildStandardServerResponse(
+        false,
+        'Invalid username',
+        null,
+        null,
+        bussinessStatusCode.BAD_REQUEST
+    );
+    const exist = await checkUsernameExistService(c, user.username);
+    if (!exist.success) {
+        return exist;
+    }
+
+    const userInfo = await getPrismaClient(c.env).user.findUnique({
+        where: { username: user.username },
+        include: {
+            hypergryphAccount: true
+        }
+    });
+
+    const { password: _, ...userInfoWithoutPassword } = userInfo!;
+
+    return buildStandardServerResponse(
+        true,
+        'User info retrieved successfully',
+        userInfoWithoutPassword,
+        null,
+        bussinessStatusCode.OK
+    );
+}
+
+export const getCurrentUserServiceInternal = async (c: Context): Promise<StandardServerResult<any>> => {
     const user = c.get('user');
     const failedResponse = buildStandardServerResponse(
         false,

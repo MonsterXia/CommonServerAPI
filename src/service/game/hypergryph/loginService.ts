@@ -4,7 +4,7 @@ import {
     hypergryphTokenByPasswordAPI,
     hypergryphTokenByPhoneCodeAPI,
     hypergryphTokenValidateAPI
-} from '../../../common/API/hypergryph';
+} from '@/common/API/hypergryph';
 import {
     HypergryphGrantOAuthTokenRequestPayload,
     HypergryphSendPhoneCodePayload,
@@ -12,9 +12,9 @@ import {
     HypergryphTokenByPhoneCodeRequestPayload,
     HypergryphTokenValidateRequestParams,
     UserInfo
-} from '../../../model/game/hypergraph/user'
-import { StandardServerResult } from '../../../model/util/hono';
-import { buildStandardServerResponse, bussinessStatusCode } from '../../../util/hono';
+} from '@/model/game/hypergraph/user'
+import { StandardServerResult } from '@/model/util/hono';
+import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
 
 export const sendPhoneCodeParser = (data: any): StandardServerResult<HypergryphSendPhoneCodePayload | null> => {
     if (!data.phone) {

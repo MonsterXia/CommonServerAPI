@@ -2,7 +2,7 @@ import {
     skLandCredValidateAPI,
     skLandGameAccountsAPI,
     skLandGetCredAPI
-} from "../../../../common/API/skLand";
+} from "@/common/API/skLand";
 import {
     Cred,
     SKLandAccountsRequestParams,
@@ -10,9 +10,9 @@ import {
     SkLandCredValidateRequestParams,
     SkLandCredValidateResponse,
     SkLandGetCredRequestPayload
-} from "../../../../model/game/hypergraph/skIsland/user";
-import { StandardServerResult } from "../../../../model/util/hono";
-import { buildStandardServerResponse, bussinessStatusCode } from "../../../../util/hono";
+} from "@/model/game/hypergraph/skIsland/user";
+import { StandardServerResult } from "@/model/util/hono";
+import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
 
 export const getCredParser = (data: any): StandardServerResult<SkLandGetCredRequestPayload | null> => {
     if (!data.code) {

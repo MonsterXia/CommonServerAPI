@@ -1,7 +1,7 @@
 import { sign, verify } from 'hono/jwt';
 import { Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { JWT_EXPIRATION_TIME, JWT_SIGN_METHOD } from '../common/config/jwtConfig';
+import { JWT_EXPIRATION_TIME, JWT_SIGN_METHOD } from '@/common/config/jwtConfig';
 
 export interface JWTPayload extends Record<string, unknown>{
   username: string;

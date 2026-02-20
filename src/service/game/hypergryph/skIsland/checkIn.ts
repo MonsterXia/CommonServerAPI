@@ -1,8 +1,8 @@
-import { fetchSkLandCheckInAPI } from "../../../../common/API/skLand";
-import { SKLandAccountsRequestParams, SKLandCheckInRequestPayload } from "../../../../model/game/hypergraph/skIsland/user";
-import { HypergryphTokenByPasswordRequestPayload } from "../../../../model/game/hypergraph/user";
-import { StandardServerResult } from "../../../../model/util/hono";
-import { buildStandardServerResponse, bussinessStatusCode } from "../../../../util/hono";
+import { fetchSkLandCheckInAPI } from "@/common/API/skLand";
+import { SKLandAccountsRequestParams, SKLandCheckInRequestPayload } from "@/model/game/hypergraph/skIsland/user";
+import { HypergryphTokenByPasswordRequestPayload } from "@/model/game/hypergraph/user";
+import { StandardServerResult } from "@/model/util/hono";
+import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
 import { fetchHypergryphOauthToken, fetchHypergryphTokenByPassword } from "../loginService";
 import { fetchSkLandCred, fetchSkLandGameAccounts } from "./loginService";
 

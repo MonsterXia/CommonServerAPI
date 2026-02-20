@@ -1,6 +1,18 @@
 import { Context } from 'hono';
-import { checkUsernameExistService, userLogoutService, userPasswordLoginParser, userPasswordLoginService, userRegisterParser, userRegisterService } from '../../service/user/userService';
-import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '../../util/hono';
+import { 
+    checkUsernameExistService, 
+    getCurrentUserService, 
+    userLogoutService, 
+    userPasswordLoginParser, 
+    userPasswordLoginService, 
+    userRegisterParser, 
+    userRegisterService 
+} from '@/service/user/userService';
+import { 
+    buildContextJson, 
+    buildErrorContextJson, 
+    bussinessStatusCode
+ } from '@/util/hono';
 
 class userController {
     public static checkUsernameExist = async (c: Context) => {
@@ -74,6 +86,20 @@ class userController {
             return buildErrorContextJson(
                 c, 
                 'Logout failed', 
+                e, 
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    public static getCurrentUser = async (c: Context) => {
+        try {
+            const res = await getCurrentUserService(c);
+            return buildContextJson(c, res);
+        } catch (e) {
+            return buildErrorContextJson(
+                c, 
+                'Get Current User Failed', 
                 e, 
                 bussinessStatusCode.INTERNAL_SERVER_ERROR
             );

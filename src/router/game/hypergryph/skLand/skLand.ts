@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import skLandController from '../../../../controller/game/hypergryph/skLandController';
+import skLandController from '@/controller/game/hypergryph/skLandController';
 
 const skLandRouter = new Hono();
 

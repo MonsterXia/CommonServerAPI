@@ -1,4 +1,4 @@
-import gatewayManager from "../common/gateway/gatewayManager";
+import gatewayManager from "@/common/gateway/gatewayManager";
 
 declare global {
   var gatewayManager: gatewayManager | undefined

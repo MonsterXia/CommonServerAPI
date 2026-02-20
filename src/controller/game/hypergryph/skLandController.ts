@@ -1,8 +1,19 @@
 import { Context } from 'hono';
-import { fetchSkLandCred, fetchSkLandCredValidate, fetchSkLandGameAccounts, getCredParser, getHypergryphGameAccountsParser, validateCredParser } from '../../../service/game/hypergryph/skIsland/loginService';
-import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '../../../util/hono';
-import { tokenByPasswordParser } from '../../../service/game/hypergryph/loginService';
-import { tempCheckIn } from '../../../service/game/hypergryph/skIsland/checkIn';
+import { 
+    fetchSkLandCred, 
+    fetchSkLandCredValidate, 
+    fetchSkLandGameAccounts, 
+    getCredParser, 
+    getHypergryphGameAccountsParser, 
+    validateCredParser 
+} from '@/service/game/hypergryph/skIsland/loginService';
+import { 
+    buildContextJson, 
+    buildErrorContextJson, 
+    bussinessStatusCode 
+} from '@/util/hono';
+import { tokenByPasswordParser } from '@/service/game/hypergryph/loginService';
+import { tempCheckIn } from '@/service/game/hypergryph/skIsland/checkIn';
 
 class skLandController {
     public static getSkLandCred = async (c: Context) => {

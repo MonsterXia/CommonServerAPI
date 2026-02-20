@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { Cred, SKLandAccountsRequestParams } from '../model/game/hypergraph/skIsland/user';
-import { skLandBasicSignHeaders } from '../common/constant/hypergryph';
+import { Cred, SKLandAccountsRequestParams } from '@/model/game/hypergraph/skIsland/user';
+import { skLandBasicSignHeaders } from '@/common/constant/hypergryph';
 
 const skLandEmbedPayolad = (payload: Record<string, any> | URLSearchParams): string => {
     if (payload instanceof URLSearchParams) {
