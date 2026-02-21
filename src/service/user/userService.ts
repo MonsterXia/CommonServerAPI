@@ -347,7 +347,15 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
         }
         await KV?.put(`email_verification_code_${data.email}`, verificationCode, { expirationTtl: 5 * 60 });
         const res = await getEmailManager().sendEmail(data.email, 'Verification Code', reactTemplate);
-        console.log('Email sent result:', res);
+        if (res.error !== null) {
+            return buildStandardServerResponse(
+                false,
+                'Failed to send verification code',
+                null,
+                res.error instanceof Error ? res.error.message : 'Unknown error while sending email',
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            );
+        }
         return buildStandardServerResponse(
             true,
             'Verification code sent successfully',

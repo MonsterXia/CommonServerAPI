@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function VerificationTemplate({ code }: { code: string }): React.ReactNode {
+const VerificationTemplate = ({ code }: { code: string }): React.ReactNode => {
   // Clean, modern email template (English)
   return (
     <div
@@ -90,3 +90,9 @@ export default function VerificationTemplate({ code }: { code: string }): React.
     </div>
   );
 }
+
+VerificationTemplate.PreviewProps = {
+  code: '123456',
+};
+
+export default VerificationTemplate;

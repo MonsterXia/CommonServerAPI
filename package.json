@@ -6,24 +6,28 @@
 		"deploy": "prisma generate && wrangler deploy",
 		"start": "wrangler dev",
 		"dev": "wrangler dev",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"email:dev": "email dev --dir src/common/Email/template"
 	},
 	"devDependencies": {
+		"@react-email/components": "1.0.8",
+		"@react-email/preview-server": "5.2.8",
 		"@types/bcryptjs": "^2.4.6",
 		"@types/node": "^25.2.3",
 		"prisma": "^7.4.0",
+		"react-email": "5.2.8",
 		"typescript": "^5.0.4",
 		"wrangler": "^4.65.0"
 	},
 	"dependencies": {
 		"@prisma/adapter-d1": "^7.4.0",
 		"@prisma/client": "^7.4.0",
-		"@react-email/components": "^1.0.8",
 		"axios": "^1.13.5",
 		"bcryptjs": "^3.0.3",
 		"crypto": "^1.0.1",
 		"hono": "^4.11.9",
-		"react": "^19.2.4",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
 		"resend": "^6.9.2"
 	}
 }
