@@ -37,14 +37,14 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
             );
         }
 
-        const foundUser = await getPrismaClient(c.env).user.findUnique({
+        const foundUser = await getPrismaClient().user.findUnique({
             where: {
                 username
             }
         })
 
         foundUser!.isAdmin = true;
-        const updatedUser = await getPrismaClient(c.env).user.update({
+        const updatedUser = await getPrismaClient().user.update({
             where: {
                 username
             },

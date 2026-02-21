@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
@@ -7,7 +6,13 @@ import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { allowOrigins } from "@/common/config/origin";
 import router from "@/router/router";
+import { getGatewayManager, initGatewayManager } from "./lib/gatewayManager";
+import { getOBSManager, initOBSManager } from "./lib/OBSManager";
+import { getPrismaClient, initPrismaClient } from "./lib/prisma";
 
+declare global {
+	var servicesInitialized: boolean | undefined;
+}
 
 export type Bindings = {
 	// Basic workflow binding
@@ -15,12 +20,38 @@ export type Bindings = {
 
 	// bindings
 	DB: D1Database;
+	KV: KVNamespace;
+	OBS: R2Bucket;
 
 	// environment variables
 	API_KEY: string;
 	PUBLIC_ACCESS_KEY: string;
 	JWT_SECRET: string;
 };
+
+async function initializeServices(env: Bindings) {
+	console.log('🚀 Initializing services...');
+	const startTime = Date.now();
+	// init gateway Manager
+	initGatewayManager();
+	gatewayManager = getGatewayManager();
+
+	// init database
+	initPrismaClient(env);
+	prisma = getPrismaClient();
+
+	// init OBS Manager
+	initOBSManager(env);
+	OBSManager = getOBSManager();
+	const duration = Date.now() - startTime;
+	console.log(`✅ All services initialized successfully in ${duration}ms`);
+}
+
+export async function warmup(env: Bindings) {
+	console.log('🔥 Warming up services...');
+	await initializeServices(env);
+	console.log('✅ Warmup completed');
+}
 
 export class CommonServerAPI extends WorkflowEntrypoint<Bindings> {
 	async run(event: any, step: any) {
@@ -36,7 +67,17 @@ export class CommonServerAPI extends WorkflowEntrypoint<Bindings> {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+app.use('*', async (c, next) => {
+	if (!globalThis.servicesInitialized) {
+		console.log('First request - initializing services...');
+		await initializeServices(c.env);
+		globalThis.servicesInitialized = true;
+	}
+	await next();
+});
+
 app.use('*',
+	prettyJSON(),
 	logger(),
 	cors({
 		origin: allowOrigins,
@@ -57,39 +98,9 @@ app.use('*',
 
 app.route('/', router);
 
-// app.use("*", prettyJSON(), logger(), async (c, next) => {
-// 	const auth = bearerAuth({ token: c.env.PUBLIC_ACCESS_KEY });
-// 	return auth(c, next);
-// });
-
+// Health check endpoint
 app.get("/", async (c) => {
 	return c.json({ message: "Common Server API is running." }, 200);
 });
-
-// app.get("/admins", async (c) => {
-// 	try {
-// 		const adapter = new PrismaD1(c.env.DB);
-//     	const prisma = new PrismaClient({ adapter });
-// 		const admins = await prisma.admin.findMany();
-// 		// let { query, params } = await c.req.json();
-// 		// let stmt = c.env.DB.prepare(query);
-// 		// if (params) {
-// 		// 	stmt = stmt.bind(...params);
-// 		// }
-
-// 		// const result = await stmt.run();
-// 		return c.json(admins);
-// 	} catch (err) {
-// 		return c.json({ error: `Failed to run query: ${err}` }, 500);
-// 	}
-// });
-
-// app.post("/api/exec", async (c) => {
-// 	return c.text("/api/exec endpoint");
-// });
-
-// app.post("/api/batch", async (c) => {
-// 	return c.text("/api/batch endpoint");
-// });
 
 export default app;

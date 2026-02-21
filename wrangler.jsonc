@@ -37,6 +37,18 @@
 			"database_name": "common-server-db",
 			"database_id": "c56e0181-0567-4740-8141-b29d83749db9",
 		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "b0ba0c0db7414237937312ad138cf8b5"
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "common-server-r2",
+			"binding": "OBS"
+		}
 	]
 	/**
 	 * Environment Variables

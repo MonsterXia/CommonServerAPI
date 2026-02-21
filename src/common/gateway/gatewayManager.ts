@@ -13,14 +13,11 @@ class gatewayManager {
     public static getInstance(): gatewayManager {
         if (!gatewayManager._instance) {
             gatewayManager._instance = new gatewayManager();
-            console.log('Gateway Manager initialized');
         }
         return gatewayManager._instance;
     }
 
     public buildHypergryphURL(endpoint: string): string {
-        console.log(`Building Hypergryph URL for endpoint: ${endpoint}`);
-        console.log(`Base Hypergryph URL: ${dominHypergraph.hypergryph}`);
         return this.urlBuilder(dominHypergraph.hypergryph, endpoint);
     }
 

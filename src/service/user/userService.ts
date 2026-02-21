@@ -90,7 +90,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
         }
 
         const hashedPassword = await bcrypt.hash(user.password, bcryptSaltRounds);
-        const newUser = await getPrismaClient(c.env).user.create({
+        const newUser = await getPrismaClient().user.create({
             data: {
                 username: user.username,
                 password: hashedPassword
@@ -133,7 +133,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
             );
         }
 
-        const user = await getPrismaClient(c.env).user.findUnique({
+        const user = await getPrismaClient().user.findUnique({
             where: {
                 username
             },
@@ -176,7 +176,7 @@ export const userPasswordLoginService = async (
             return exist;
         }
 
-        const foundUser = await getPrismaClient(c.env).user.findUnique({
+        const foundUser = await getPrismaClient().user.findUnique({
             where: {
                 username: user.username
             }
@@ -246,7 +246,7 @@ export const getCurrentUserService = async (c: Context): Promise<StandardServerR
         return exist;
     }
 
-    const userInfo = await getPrismaClient(c.env).user.findUnique({
+    const userInfo = await getPrismaClient().user.findUnique({
         where: { username: user.username },
         include: {
             hypergryphAccount: true
@@ -278,7 +278,7 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
         return exist;
     }
 
-    const userInfo = await getPrismaClient(c.env).user.findUnique({
+    const userInfo = await getPrismaClient().user.findUnique({
         where: { username: user.username },
         include: {
             hypergryphAccount: true

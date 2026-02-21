@@ -53,7 +53,7 @@ export const setAuthCookie = (c: Context, token: string) => {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7天
+    maxAge: JWT_EXPIRATION_TIME,
     path: '/',
   });
 };
