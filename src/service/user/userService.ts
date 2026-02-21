@@ -1,11 +1,17 @@
 import bcrypt from 'bcryptjs';
 import { Context } from 'hono';
-import { UserPasswordLoginRequestPayload, UserRegisterRequestPayload } from "@/model/user/user";
+import { 
+    SendEmailVerificationCodeRequestPayload, 
+    UserPasswordLoginRequestPayload, 
+    UserRegisterRequestPayload 
+} from "@/model/user/user";
 import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import { getPrismaClient } from '@/lib/prisma';
 import { clearAuthCookie, generateToken, setAuthCookie } from '@/lib/jwt';
 import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
 import { StandardServerResult } from '@/model/util/hono';
+import VerificationTemplate from '@/common/Email/template/verificationTemplate';
+import { getEmailManager } from '@/lib/emailManager';
 
 export const userRegisterParser = (data: any): StandardServerResult<UserRegisterRequestPayload | null> => {
     if (!data.username || !data.password) {
@@ -72,6 +78,37 @@ export const userPasswordLoginParser = (data: any): StandardServerResult<UserPas
             username: data.username.toString(),
             password: data.password.toString()
         },
+        bussinessStatusCode.OK
+    )
+}
+
+export const sendEmailVerificationCodeParser = (data: any): StandardServerResult<SendEmailVerificationCodeRequestPayload | null> => {
+    if (!data.email) {
+        return buildStandardServerResponse(
+            false,
+            'Missing email',
+            null,
+            'Missing email in request payload',
+            bussinessStatusCode.BAD_REQUEST
+        )
+    }
+
+    const emailStr = data.email.toString();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailStr)) {
+        return buildStandardServerResponse(
+            false,
+            'Invalid email format',
+            null,
+            'Email format is invalid',
+            bussinessStatusCode.BAD_REQUEST
+        )
+    }
+
+    return buildStandardServerResponse(
+        true,
+        'Parse request payload successfully',
+        { email: emailStr },
         bussinessStatusCode.OK
     )
 }
@@ -292,4 +329,39 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
         null,
         bussinessStatusCode.OK
     );
+}
+
+export const sendEmailVerificationCodeService = async (c: Context, data: SendEmailVerificationCodeRequestPayload): Promise<StandardServerResult<any>> => {
+    try {
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const reactTemplate = VerificationTemplate({code: verificationCode,})
+        const existingCode = await KV?.get(`email_verification_code_${data.email}`);
+        if (existingCode) {
+            return buildStandardServerResponse(
+                false,
+                'Verification code already sent',
+                null,
+                'A verification code has already been sent to this email address. Please wait before requesting another one.',
+                bussinessStatusCode.TOO_MANY_REQUESTS
+            );
+        }
+        await KV?.put(`email_verification_code_${data.email}`, verificationCode, { expirationTtl: 5 * 60 });
+        const res = await getEmailManager().sendEmail(data.email, 'Verification Code', reactTemplate);
+        console.log('Email sent result:', res);
+        return buildStandardServerResponse(
+            true,
+            'Verification code sent successfully',
+            null,
+            null,
+            bussinessStatusCode.OK
+        );
+    } catch (error) {
+        return buildStandardServerResponse(
+            false,
+            'Failed to send verification code',
+            null,
+            error instanceof Error ? error.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        );
+    }
 }

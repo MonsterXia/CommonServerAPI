@@ -1,0 +1,1 @@
+export const emailSenderAddress = 'noreply@mail.api.246801357.xyz'

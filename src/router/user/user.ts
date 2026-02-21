@@ -4,6 +4,7 @@ import { authMiddleware } from '@/middleware/auth';
 const userRouter = new Hono();
 
 userRouter.get('/username/:username/exist', userController.checkUsernameExist);
+userRouter.post('/email/verify', userController.sendEmailVerificationCode);
 userRouter.post('/register', userController.userRegister);
 userRouter.post('/login', userController.userLogin);
 userRouter.post('/logout', userController.userLogout);

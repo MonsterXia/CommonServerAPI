@@ -9,6 +9,8 @@ import router from "@/router/router";
 import { getGatewayManager, initGatewayManager } from "./lib/gatewayManager";
 import { getOBSManager, initOBSManager } from "./lib/OBSManager";
 import { getPrismaClient, initPrismaClient } from "./lib/prisma";
+import { getKV, initKV } from "./lib/KV";
+import { getEmailManager, initEmailManager } from "./lib/emailManager";
 
 declare global {
 	var servicesInitialized: boolean | undefined;
@@ -27,6 +29,7 @@ export type Bindings = {
 	API_KEY: string;
 	PUBLIC_ACCESS_KEY: string;
 	JWT_SECRET: string;
+	RESEND_API_KEY: string;
 };
 
 async function initializeServices(env: Bindings) {
@@ -40,10 +43,19 @@ async function initializeServices(env: Bindings) {
 	initPrismaClient(env);
 	prisma = getPrismaClient();
 
+	// init KV Namespace
+	initKV(env);
+	KV = getKV();
+
 	// init OBS Manager
 	initOBSManager(env);
 	OBSManager = getOBSManager();
 	const duration = Date.now() - startTime;
+
+	// init Email Manager
+	initEmailManager(env);
+	EmailManager = getEmailManager();
+
 	console.log(`✅ All services initialized successfully in ${duration}ms`);
 }
 

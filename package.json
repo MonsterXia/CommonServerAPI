@@ -18,9 +18,12 @@
 	"dependencies": {
 		"@prisma/adapter-d1": "^7.4.0",
 		"@prisma/client": "^7.4.0",
+		"@react-email/components": "^1.0.8",
 		"axios": "^1.13.5",
 		"bcryptjs": "^3.0.3",
 		"crypto": "^1.0.1",
-		"hono": "^4.11.9"
+		"hono": "^4.11.9",
+		"react": "^19.2.4",
+		"resend": "^6.9.2"
 	}
 }

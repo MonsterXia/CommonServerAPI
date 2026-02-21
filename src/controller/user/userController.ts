@@ -2,6 +2,8 @@ import { Context } from 'hono';
 import { 
     checkUsernameExistService, 
     getCurrentUserService, 
+    sendEmailVerificationCodeParser, 
+    sendEmailVerificationCodeService, 
     userLogoutService, 
     userPasswordLoginParser, 
     userPasswordLoginService, 
@@ -100,6 +102,26 @@ class userController {
             return buildErrorContextJson(
                 c, 
                 'Get Current User Failed', 
+                e, 
+                bussinessStatusCode.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    public static sendEmailVerificationCode = async (c: Context) => {
+        try {
+            const input = await c.req.json();
+            const parserResult = sendEmailVerificationCodeParser(input);
+            if (!parserResult.success) {
+                return buildContextJson(c, parserResult);
+            }
+            const formattedInput = parserResult.data!;
+            const res = await sendEmailVerificationCodeService(c, formattedInput);
+            return buildContextJson(c, res);
+        } catch (e) {
+            return buildErrorContextJson(
+                c, 
+                'Send Email Verification Code Failed', 
                 e, 
                 bussinessStatusCode.INTERNAL_SERVER_ERROR
             );
