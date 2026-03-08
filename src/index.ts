@@ -4,7 +4,7 @@ import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
-import { allowOrigins } from "@/common/config/origin";
+import { allowOrigins, CORSAllowOrigins } from "@/common/config/origin";
 import router from "@/router/router";
 import { getGatewayManager, initGatewayManager } from "./lib/gatewayManager";
 import { getOBSManager, initOBSManager } from "./lib/OBSManager";
@@ -92,7 +92,7 @@ app.use('*',
 	prettyJSON(),
 	logger(),
 	cors({
-		origin: allowOrigins,
+		origin: CORSAllowOrigins,
 		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		allowHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
