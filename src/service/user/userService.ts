@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { Context } from 'hono';
-import { 
-    SendEmailVerificationCodeRequestPayload, 
-    UserPasswordLoginRequestPayload, 
-    UserRegisterRequestPayload 
+import {
+    SendEmailVerificationCodeRequestPayload,
+    UserPasswordLoginRequestPayload,
+    UserRegisterRequestPayload
 } from "@/model/user/user";
 import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import { getPrismaClient } from '@/lib/prisma';
@@ -12,14 +12,15 @@ import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
 import { StandardServerResult } from '@/model/util/hono';
 import VerificationTemplate from '@/common/Email/template/verificationTemplate';
 import { getEmailManager } from '@/lib/emailManager';
+import Joi from 'joi';
 
 export const userRegisterParser = (data: any): StandardServerResult<UserRegisterRequestPayload | null> => {
-    if (!data.username || !data.password) {
+    if (!data.username || !data.password || !data.email || !data.registrationCode) {
         return buildStandardServerResponse(
             false,
-            'Missing username or password',
+            'Missing username or password or email or registration code',
             null,
-            'Missing username or password in request payload',
+            'Missing username or password or email or registration code in request payload',
             bussinessStatusCode.BAD_REQUEST
         )
     }
@@ -50,12 +51,36 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
         }
     }
 
+    if (data.username.toString().length < 3 || data.username.toString().length > 30) {
+        return buildStandardServerResponse(
+            false,
+            'Username length invalid',
+            null,
+            'Username must be between 3 and 30 characters long',
+            bussinessStatusCode.BAD_REQUEST
+        )
+    }
+
+    const emailSchema = Joi.string().email();
+    const { error, value: emailAddress } = emailSchema.validate(data.email.toString());
+    if (error) {
+        return buildStandardServerResponse(
+            false,
+            'Invalid email format',
+            null,
+            'Email format is invalid',
+            bussinessStatusCode.BAD_REQUEST
+        )
+    }
+
     return buildStandardServerResponse(
         true,
         'Parse request payload successfully',
         {
             username: data.username.toString(),
-            password: data.password.toString()
+            password: data.password.toString(),
+            email: emailAddress,
+            registrationCode: data.registrationCode.toString()
         },
         bussinessStatusCode.OK
     )
@@ -83,19 +108,29 @@ export const userPasswordLoginParser = (data: any): StandardServerResult<UserPas
 }
 
 export const sendEmailVerificationCodeParser = (data: any): StandardServerResult<SendEmailVerificationCodeRequestPayload | null> => {
-    if (!data.email) {
+    if (!data.email || !data.type) {
         return buildStandardServerResponse(
             false,
-            'Missing email',
+            'Missing email or type',
             null,
-            'Missing email in request payload',
+            'Missing email or type in request payload',
             bussinessStatusCode.BAD_REQUEST
         )
     }
 
-    const emailStr = data.email.toString();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailStr)) {
+    if (!['register', 'reset_password'].includes(data.type)) {
+        return buildStandardServerResponse(
+            false,
+            'Invalid verification type',
+            null,
+            'Invalid verification type. Must be either "register" or "reset_password"',
+            bussinessStatusCode.BAD_REQUEST
+        )
+    }
+
+    const emailSchema = Joi.string().email();
+    const { error, value: emailAddress } = emailSchema.validate(data.email.toString());
+    if (error) {
         return buildStandardServerResponse(
             false,
             'Invalid email format',
@@ -108,7 +143,10 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
     return buildStandardServerResponse(
         true,
         'Parse request payload successfully',
-        { email: emailStr },
+        {
+            email: emailAddress,
+            type: data.type
+        },
         bussinessStatusCode.OK
     )
 }
@@ -125,12 +163,44 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 bussinessStatusCode.CONFLICT
             )
         }
+        const emailExist = await checkEmailExistService(c, user.email);
+        if (emailExist.success) {
+            return buildStandardServerResponse(
+                false,
+                'Email already exists',
+                null,
+                'Email already exists',
+                bussinessStatusCode.CONFLICT
+            )
+        }
+
+        const registrationCode = await KV?.get(`email-verification-code-${user.email}-register`);
+        if (!registrationCode) {
+            return buildStandardServerResponse(
+                false,
+                'Verification code expired or not found',
+                null,
+                'Verification code expired or not found. Please request a new verification code.',
+                bussinessStatusCode.BAD_REQUEST
+            )
+        }
+
+        if (registrationCode !== user.registrationCode) {
+            return buildStandardServerResponse(
+                false,
+                'Invalid verification code',
+                null,
+                'Invalid verification code. Please check the code and try again.',
+                bussinessStatusCode.BAD_REQUEST
+            )
+        }
 
         const hashedPassword = await bcrypt.hash(user.password, bcryptSaltRounds);
         const newUser = await getPrismaClient().user.create({
             data: {
                 username: user.username,
-                password: hashedPassword
+                password: hashedPassword,
+                email: user.email
             }
         })
 
@@ -189,6 +259,46 @@ export const checkUsernameExistService = async (c: Context, username: string): P
         return buildStandardServerResponse(
             false,
             'Failed to check username existence',
+            null,
+            error instanceof Error ? error.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        );
+    }
+}
+
+export const checkEmailExistService = async (c: Context, email: string): Promise<StandardServerResult<boolean | null>> => {
+    try {
+        if (!email || email.trim() === '') {
+            return buildStandardServerResponse(
+                false,
+                'Invalid email',
+                null,
+                'Email is empty or contains only whitespace',
+                bussinessStatusCode.BAD_REQUEST
+            );
+        }
+
+        const user = await getPrismaClient().user.findMany(
+            {
+                where: {
+                    email
+                },
+                select: {
+                    id: true
+                }
+            }
+        )
+        return buildStandardServerResponse(
+            user.length > 0,
+            user.length > 0 ? 'Email exists' : 'Email does not exist',
+            user.length > 0,
+            null,
+            bussinessStatusCode.OK
+        );
+    } catch (error) {
+        return buildStandardServerResponse(
+            false,
+            'Failed to check email existence',
             null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
@@ -334,8 +444,8 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
 export const sendEmailVerificationCodeService = async (c: Context, data: SendEmailVerificationCodeRequestPayload): Promise<StandardServerResult<any>> => {
     try {
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const reactTemplate = VerificationTemplate({code: verificationCode,})
-        const existingCode = await KV?.get(`email_verification_code_${data.email}`);
+        const reactTemplate = VerificationTemplate({ code: verificationCode, })
+        const existingCode = await KV?.get(`email-verification-code-${data.email}-${data.type}`);
         if (existingCode) {
             return buildStandardServerResponse(
                 false,
@@ -345,7 +455,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                 bussinessStatusCode.TOO_MANY_REQUESTS
             );
         }
-        await KV?.put(`email_verification_code_${data.email}`, verificationCode, { expirationTtl: 5 * 60 });
+        await KV?.put(`email-verification-code-${data.email}-${data.type}`, verificationCode, { expirationTtl: 5 * 60 });
         const res = await getEmailManager().sendEmail(data.email, 'Verification Code', reactTemplate);
         if (res.error !== null) {
             return buildStandardServerResponse(
