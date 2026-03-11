@@ -443,6 +443,18 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
 
 export const sendEmailVerificationCodeService = async (c: Context, data: SendEmailVerificationCodeRequestPayload): Promise<StandardServerResult<any>> => {
     try {
+        if (data.type === 'register') {
+            const emailExist = await checkEmailExistService(c, data.email);
+            if (emailExist.success) {
+                return buildStandardServerResponse(
+                    false,
+                    'Email already exists',
+                    null,
+                    'Email already exists. Please use a different email address.',
+                    bussinessStatusCode.CONFLICT
+                )
+            }
+        }
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
         const reactTemplate = VerificationTemplate({ code: verificationCode, })
         const existingCode = await KV?.get(`email-verification-code-${data.email}-${data.type}`);
