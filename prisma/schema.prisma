@@ -1,8 +1,8 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../src/generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -20,22 +20,22 @@ model Admin {
 }
 
 model User {
-    id                Int                @id @default(autoincrement())
-    username          String             @unique
-    email             String?
-    phone             String?
-    password          String
-    hypergryphAccount HypergryphAccount?
-    isAdmin           Boolean            @default(false)
-    createdAt         DateTime           @default(now())
-    updatedAt         DateTime           @updatedAt
+  id                Int                @id @default(autoincrement())
+  username          String             @unique
+  email             String?
+  phone             String?
+  password          String
+  hypergryphAccount HypergryphAccount?
+  isAdmin           Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model HypergryphAccount {
-    id        Int      @id @default(autoincrement())
-    userId    Int      @unique
-    token     String
-    user      User     @relation(fields: [userId], references: [id])
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  phone     String   @id
+  userId    Int      @unique
+  token     String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
