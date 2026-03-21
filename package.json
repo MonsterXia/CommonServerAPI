@@ -10,26 +10,31 @@
 		"email:dev": "email dev --dir src/common/Email/template"
 	},
 	"devDependencies": {
-		"@react-email/components": "1.0.8",
-		"@react-email/preview-server": "5.2.8",
+		"@react-email/components": "^1.0.10",
+		"@react-email/preview-server": "^5.2.10",
 		"@types/bcryptjs": "^2.4.6",
 		"@types/node": "^25.2.3",
 		"dotenv": "^17.3.1",
-		"prisma": "^7.4.2",
-		"react-email": "5.2.8",
+		"prisma": "^7.5.0",
+		"react-email": "^5.2.10",
 		"typescript": "^5.0.4",
 		"wrangler": "^4.65.0"
 	},
 	"dependencies": {
-		"@prisma/adapter-d1": "^7.4.0",
-		"@prisma/client": "^7.4.2",
+		"@hono/node-server": "^1.19.11",
+		"@prisma/adapter-d1": "^7.5.0",
+		"@prisma/client": "^7.5.0",
 		"axios": "^1.13.5",
 		"bcryptjs": "^3.0.3",
 		"crypto": "^1.0.1",
-		"hono": "^4.12.5",
+		"hono": "^4.12.8",
 		"joi": "^18.0.2",
+		"lodash": "^4.17.23",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
-		"resend": "^6.9.2"
+		"resend": "^6.9.2",
+		"socket.io-parser": "^4.2.6",
+		"stripe": "^20.4.1",
+		"undici": "^7.24.5"
 	}
 }
