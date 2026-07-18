@@ -4,6 +4,7 @@
 
 # OS files
 node_modules
+.DS_Store
 
 # Wrangler
 .wrangler
@@ -14,5 +15,5 @@ build
 
 # Secret files
 .env*
-.dev.vars
+.dev.vars*
 /src/generated/prisma

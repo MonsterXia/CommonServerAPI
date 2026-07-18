@@ -6,6 +6,8 @@
 		"deploy": "prisma generate && wrangler deploy",
 		"start": "wrangler dev",
 		"dev": "wrangler dev",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
 		"cf-typegen": "wrangler types",
 		"email:dev": "email dev --dir src/common/Email/template"
 	},
@@ -18,6 +20,7 @@
 		"prisma": "^7.9.0-dev.8",
 		"react-email": "^6.0.5",
 		"typescript": "^5.0.4",
+		"vitest": "^4.1.10",
 		"wrangler": "^4.65.0"
 	},
 	"dependencies": {

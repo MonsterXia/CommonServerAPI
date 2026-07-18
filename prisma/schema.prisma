@@ -26,9 +26,22 @@ model User {
   phone             String?
   password          String
   hypergryphAccount HypergryphAccount?
+  postAdmin         PostAdmin?
   isAdmin           Boolean            @default(false)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+}
+
+model PostAdmin {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  organization String   @default("")
+  role         String   @default("")
+  userId       Int?     @unique
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model HypergryphAccount {

@@ -20,6 +20,14 @@ class userController {
     public static checkUsernameExist = async (c: Context) => {
         try {
             const username = c.req.param('username');
+            if (!username) {
+                return buildErrorContextJson(
+                    c,
+                    'Missing username',
+                    'Username route parameter is required',
+                    bussinessStatusCode.BAD_REQUEST
+                );
+            }
             const isExist = await checkUsernameExistService(c, username);
 
             return buildContextJson(c, isExist)

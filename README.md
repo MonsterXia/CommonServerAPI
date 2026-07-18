@@ -72,6 +72,44 @@ Remember to rerun 'npx wrangler types' after you change your 'wrangler.jsonc'/'.
 
 Request => router => controller => service ( => KV) (=> database)
 
+### Post administrator accounts
+
+Post administrator accounts use an identity and login session independent from normal users.
+They may remain unbound. A normal user and a Post administrator can form an optional
+one-to-one binding only while both `auth_token` and `post_auth_token` sessions are valid.
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/post/admin/register/valid-email` | Public | Check whether a Post administrator email is available |
+| `POST` | `/post/admin/register/init` | Public | Hash the password and send a 30-minute verification token |
+| `POST` | `/post/admin/register/validate` | Public | Verify the token and create an unbound Post administrator |
+| `POST` | `/post/admin/login` | Public | Create the independent Post administrator session |
+| `POST` | `/post/admin/logout` | Public | Clear the Post administrator session cookie |
+| `GET` | `/post/admin/current` | Post administrator | Return the active Post administrator without its password hash |
+| `POST` | `/post/admin/binding` | Normal user + Post administrator | Bind the two active identities |
+| `DELETE` | `/post/admin/binding` | Normal user + Post administrator | Remove their existing binding |
+
+Registration initialization accepts:
+
+```json
+{
+  "email": "post-admin@example.com",
+  "password": "Secure!Password"
+}
+```
+
+Registration validation accepts the token delivered by email:
+
+```json
+{
+  "email": "post-admin@example.com",
+  "token": "verification-token"
+}
+```
+
+The implementation reuses the existing `DB`, `KV`, `JWT_SECRET`, and `RESEND_API_KEY`
+bindings. No secret value from the former PostAPI repository is required or copied.
+
 #### Router
 
 ```typescript
@@ -204,6 +242,5 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
     }
 }
 ```
-
 
 

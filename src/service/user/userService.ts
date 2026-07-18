@@ -396,7 +396,18 @@ export const getCurrentUserService = async (c: Context): Promise<StandardServerR
     const userInfo = await getPrismaClient().user.findUnique({
         where: { username: user.username },
         include: {
-            hypergryphAccount: true
+            hypergryphAccount: true,
+            postAdmin: {
+                select: {
+                    id: true,
+                    email: true,
+                    organization: true,
+                    role: true,
+                    userId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                }
+            }
         }
     });
 
