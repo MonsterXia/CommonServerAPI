@@ -4,8 +4,8 @@
 	"private": true,
 	"scripts": {
 		"deploy": "prisma generate && wrangler deploy",
-		"start": "wrangler dev",
-		"dev": "wrangler dev",
+		"start": "wrangler dev --var APP_ENV:development",
+		"dev": "wrangler dev --var APP_ENV:development",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit",
 		"cf-typegen": "wrangler types",

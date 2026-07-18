@@ -4,7 +4,7 @@ import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
-import { allowOrigins, CORSAllowOrigins } from "@/common/config/origin";
+import { getCORSAllowedOrigin, isAllowedOrigin, type AppEnvironment } from "@/common/config/origin";
 import router from "@/router/router";
 import { getGatewayManager, initGatewayManager } from "./lib/gatewayManager";
 import { getOBSManager, initOBSManager } from "./lib/OBSManager";
@@ -30,6 +30,7 @@ export type Bindings = {
 	PUBLIC_ACCESS_KEY: string;
 	JWT_SECRET: string;
 	RESEND_API_KEY: string;
+	APP_ENV: AppEnvironment;
 };
 
 async function initializeServices(env: Bindings) {
@@ -92,10 +93,11 @@ app.use('*',
 	prettyJSON(),
 	logger(),
 	cors({
-		origin: CORSAllowOrigins,
+		origin: (origin, c) => getCORSAllowedOrigin(origin, c.env.APP_ENV),
 		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-		allowHeaders: ['Content-Type', 'Authorization'],
+		allowHeaders: ['Content-Type', 'Authorization', 'All'],
 		credentials: true,
+		maxAge: 600,
 	}),
 	async (c, next) => {
 		if (c.req.method === 'POST' && c.req.path === '/user/logout') {
@@ -103,7 +105,7 @@ app.use('*',
 			return
 		}
 		return csrf({
-			origin: allowOrigins,
+			origin: (origin, c) => isAllowedOrigin(origin, c.env.APP_ENV),
 		})(c, next)
 	}
 )
