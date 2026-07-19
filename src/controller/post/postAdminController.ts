@@ -94,7 +94,7 @@ class PostAdminController {
         }
     };
 
-    public static logout = async (c: Context) => buildContextJson(c, postAdminLogoutService(c));
+    public static logout = async (c: Context) => buildContextJson(c, await postAdminLogoutService(c));
 
     public static current = async (c: Context) => buildContextJson(c, await getCurrentPostAdminService(c));
 

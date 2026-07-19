@@ -11,8 +11,20 @@ import { clearAuthCookie, generateToken, setAuthCookie } from '@/lib/jwt';
 import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
 import { StandardServerResult } from '@/model/util/hono';
 import VerificationTemplate from '@/common/Email/template/verificationTemplate';
-import { getEmailManager } from '@/lib/emailManager';
-import Joi from 'joi';
+import { validateEmail } from '@/common/validation/email';
+import { validatePasswordStrength } from '@/common/validation/password';
+import {
+    checkVerificationCodeExists,
+    constantTimeEquals,
+    generateVerificationCode,
+    getVerificationCode,
+    storeVerificationCode,
+    sendVerificationEmail,
+    deleteVerificationCode,
+} from '@/common/service/verificationService';
+
+const VERIFICATION_CODE_TTL_SECONDS = 5 * 60;
+const VERIFICATION_CODE_KEY_PREFIX = 'email-verification-code-';
 
 export const userRegisterParser = (data: any): StandardServerResult<UserRegisterRequestPayload | null> => {
     if (!data.username || !data.password || !data.email || !data.registrationCode) {
@@ -25,30 +37,16 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
         )
     }
 
-    if (data.password.toString()) {
-        const passwordStr = data.password.toString();
-        if (passwordStr.length < 6 || passwordStr.length > 128) {
-            return buildStandardServerResponse(
-                false,
-                'Password length invalid',
-                null,
-                'Password must be between 6 and 128 characters long',
-                bussinessStatusCode.BAD_REQUEST
-            )
-        }
-        const hasUpperCase = /[A-Z]/.test(passwordStr);
-        const hasLowerCase = /[a-z]/.test(passwordStr);
-        // const hasDigit = /\d/.test(passwordStr);
-        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(passwordStr);
-        if (!hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-            return buildStandardServerResponse(
-                false,
-                'Password complexity insufficient',
-                null,
-                'Password must contain at least one uppercase letter, one lowercase letter, and one special character',
-                bussinessStatusCode.BAD_REQUEST
-            )
-        }
+    // Validate password using shared utility
+    const passwordValidation = validatePasswordStrength(data.password.toString());
+    if (!passwordValidation.valid) {
+        return buildStandardServerResponse(
+            false,
+            'Password validation failed',
+            null,
+            passwordValidation.error,
+            bussinessStatusCode.BAD_REQUEST
+        )
     }
 
     if (data.username.toString().length < 3 || data.username.toString().length > 30) {
@@ -61,14 +59,14 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
         )
     }
 
-    const emailSchema = Joi.string().email();
-    const { error, value: emailAddress } = emailSchema.validate(data.email.toString());
-    if (error) {
+    // Validate email using shared utility
+    const emailValidation = validateEmail(data.email);
+    if (!emailValidation.valid) {
         return buildStandardServerResponse(
             false,
             'Invalid email format',
             null,
-            'Email format is invalid',
+            emailValidation.error,
             bussinessStatusCode.BAD_REQUEST
         )
     }
@@ -79,7 +77,7 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
         {
             username: data.username.toString(),
             password: data.password.toString(),
-            email: emailAddress,
+            email: emailValidation.normalizedEmail!,
             registrationCode: data.registrationCode.toString()
         },
         bussinessStatusCode.OK
@@ -128,14 +126,14 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
         )
     }
 
-    const emailSchema = Joi.string().email();
-    const { error, value: emailAddress } = emailSchema.validate(data.email.toString());
-    if (error) {
+    // Validate email using shared utility
+    const emailValidation = validateEmail(data.email);
+    if (!emailValidation.valid) {
         return buildStandardServerResponse(
             false,
             'Invalid email format',
             null,
-            'Email format is invalid',
+            emailValidation.error,
             bussinessStatusCode.BAD_REQUEST
         )
     }
@@ -144,7 +142,7 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
         true,
         'Parse request payload successfully',
         {
-            email: emailAddress,
+            email: emailValidation.normalizedEmail!,
             type: data.type
         },
         bussinessStatusCode.OK
@@ -174,8 +172,11 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
             )
         }
 
-        const registrationCode = await KV?.get(`email-verification-code-${user.email}-register`);
-        if (!registrationCode) {
+        // Verify registration code using shared utility
+        const verificationKey = `${VERIFICATION_CODE_KEY_PREFIX}${user.email}-register`;
+        const storedCode = await getVerificationCode(verificationKey);
+        
+        if (!storedCode) {
             return buildStandardServerResponse(
                 false,
                 'Verification code expired or not found',
@@ -185,7 +186,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
             )
         }
 
-        if (registrationCode !== user.registrationCode) {
+        if (!constantTimeEquals(storedCode, user.registrationCode)) {
             return buildStandardServerResponse(
                 false,
                 'Invalid verification code',
@@ -194,6 +195,9 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 bussinessStatusCode.BAD_REQUEST
             )
         }
+
+        // Clean up used verification code
+        await deleteVerificationCode(verificationKey);
 
         const hashedPassword = await bcrypt.hash(user.password, bcryptSaltRounds);
         const newUser = await getPrismaClient().user.create({
@@ -466,10 +470,14 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                 )
             }
         }
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const reactTemplate = VerificationTemplate({ code: verificationCode, })
-        const existingCode = await KV?.get(`email-verification-code-${data.email}-${data.type}`);
-        if (existingCode) {
+
+        // Generate and send verification code using shared utility
+        const verificationCode = generateVerificationCode();
+        const key = `${VERIFICATION_CODE_KEY_PREFIX}${data.email}-${data.type}`;
+
+        // Check if code already exists
+        const exists = await checkVerificationCodeExists(key);
+        if (exists) {
             return buildStandardServerResponse(
                 false,
                 'Verification code already sent',
@@ -478,17 +486,26 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                 bussinessStatusCode.TOO_MANY_REQUESTS
             );
         }
-        await KV?.put(`email-verification-code-${data.email}-${data.type}`, verificationCode, { expirationTtl: 5 * 60 });
-        const res = await getEmailManager().sendEmail(data.email, 'Verification Code', reactTemplate);
-        if (res.error !== null) {
+
+        // Store the code
+        await storeVerificationCode(key, verificationCode, VERIFICATION_CODE_TTL_SECONDS);
+
+        // Send the email
+        const template = VerificationTemplate({ code: verificationCode });
+        const sendResult = await sendVerificationEmail(data.email, 'Verification Code', template);
+
+        if (!sendResult.success) {
+            // Clean up stored code if email fails
+            await deleteVerificationCode(key);
             return buildStandardServerResponse(
                 false,
                 'Failed to send verification code',
                 null,
-                res.error instanceof Error ? res.error.message : 'Unknown error while sending email',
+                sendResult.error,
                 bussinessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
+
         return buildStandardServerResponse(
             true,
             'Verification code sent successfully',

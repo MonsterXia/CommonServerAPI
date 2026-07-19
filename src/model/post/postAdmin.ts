@@ -5,7 +5,7 @@ export interface PostAdminRegisterRequestPayload {
 
 export interface PostAdminValidateRequestPayload {
     email: string;
-    token: string;
+    code: string;
 }
 
 export interface PostAdminLoginRequestPayload {

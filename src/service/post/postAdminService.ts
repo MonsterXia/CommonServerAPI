@@ -1,10 +1,17 @@
 import bcrypt from 'bcryptjs';
-import Joi from 'joi';
 import { Context } from 'hono';
 import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import PostAdminVerificationTemplate from '@/common/Email/template/postAdminVerificationTemplate';
-import { getEmailManager } from '@/lib/emailManager';
-import { getKV } from '@/lib/KV';
+import { validateEmail, normalizeEmail } from '@/common/validation/email';
+import { validatePasswordStrength } from '@/common/validation/password';
+import {
+    constantTimeEquals,
+    deleteVerificationCode,
+    generateVerificationCode,
+    getVerificationCode,
+    storeVerificationCode,
+    sendVerificationEmail,
+} from '@/common/service/verificationService';
 import {
     clearPostAdminAuthCookie,
     generatePostAdminToken,
@@ -25,7 +32,6 @@ const REGISTRATION_KEY_PREFIX = 'post-admin-registration:';
 
 interface PendingPostAdminRegistration {
     passwordHash: string;
-    tokenHash: string;
 }
 
 interface PostAdminRecord extends PublicPostAdmin {
@@ -58,30 +64,6 @@ export const getPostAdminBindingDecision = (input: {
 
 const registrationKey = (email: string) => `${REGISTRATION_KEY_PREFIX}${email}`;
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-const sha256 = async (value: string): Promise<string> => {
-    const bytes = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('');
-};
-
-const constantTimeEquals = (left: string, right: string): boolean => {
-    if (left.length !== right.length) {
-        return false;
-    }
-
-    let difference = 0;
-    for (let index = 0; index < left.length; index += 1) {
-        difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
-    }
-    return difference === 0;
-};
-
-const createVerificationToken = (): string => crypto.randomUUID().replaceAll('-', '');
-
 export const toPublicPostAdmin = (postAdmin: PostAdminRecord): PublicPostAdmin => {
     const { password: _, ...publicPostAdmin } = postAdmin;
     return publicPostAdmin;
@@ -100,14 +82,13 @@ export const postAdminEmailParser = (
         );
     }
 
-    const normalizedInput = normalizeEmail(String(data.email));
-    const { error, value } = Joi.string().email().validate(normalizedInput);
-    if (error) {
+    const emailValidation = validateEmail(data.email);
+    if (!emailValidation.valid) {
         return buildStandardServerResponse(
             false,
             'Invalid email format',
             null,
-            'Email format is invalid',
+            emailValidation.error,
             bussinessStatusCode.BAD_REQUEST
         );
     }
@@ -115,7 +96,7 @@ export const postAdminEmailParser = (
     return buildStandardServerResponse(
         true,
         'Request payload parsed successfully',
-        { email: normalizeEmail(value) },
+        { email: emailValidation.normalizedEmail! },
         null,
         bussinessStatusCode.OK
     );
@@ -145,27 +126,13 @@ export const postAdminRegisterParser = (
         );
     }
 
-    const password = String(data.password);
-    if (password.length < 6 || password.length > 128) {
+    const passwordValidation = validatePasswordStrength(String(data.password));
+    if (!passwordValidation.valid) {
         return buildStandardServerResponse(
             false,
-            'Password length invalid',
+            'Password validation failed',
             null,
-            'Password must be between 6 and 128 characters long',
-            bussinessStatusCode.BAD_REQUEST
-        );
-    }
-
-    if (
-        !/[A-Z]/.test(password)
-        || !/[a-z]/.test(password)
-        || !/[!@#$%^&*(),.?":{}|<>]/.test(password)
-    ) {
-        return buildStandardServerResponse(
-            false,
-            'Password complexity insufficient',
-            null,
-            'Password must contain upper-case, lower-case, and special characters',
+            passwordValidation.error,
             bussinessStatusCode.BAD_REQUEST
         );
     }
@@ -175,7 +142,7 @@ export const postAdminRegisterParser = (
         'Request payload parsed successfully',
         {
             email: emailResult.data!.email,
-            password,
+            password: String(data.password),
         },
         null,
         bussinessStatusCode.OK
@@ -196,12 +163,23 @@ export const postAdminValidationParser = (
         );
     }
 
-    if (!data || typeof data !== 'object' || !('token' in data) || !String(data.token).trim()) {
+    if (!data || typeof data !== 'object' || !('code' in data) || !String(data.code).trim()) {
         return buildStandardServerResponse(
             false,
-            'Missing verification token',
+            'Missing verification code',
             null,
-            'Missing verification token in request payload',
+            'Missing verification code in request payload',
+            bussinessStatusCode.BAD_REQUEST
+        );
+    }
+
+    const code = String(data.code).trim();
+    if (!/^\d{6}$/.test(code)) {
+        return buildStandardServerResponse(
+            false,
+            'Invalid verification code format',
+            null,
+            'Verification code must be a 6-digit number',
             bussinessStatusCode.BAD_REQUEST
         );
     }
@@ -211,7 +189,7 @@ export const postAdminValidationParser = (
         'Request payload parsed successfully',
         {
             email: emailResult.data!.email,
-            token: String(data.token).trim(),
+            code,
         },
         null,
         bussinessStatusCode.OK
@@ -221,23 +199,23 @@ export const postAdminValidationParser = (
 export const postAdminLoginParser = (
     data: unknown
 ): StandardServerResult<PostAdminLoginRequestPayload | null> => {
-    const emailResult = postAdminEmailParser(data);
-    if (!emailResult.success) {
+    if (!data || typeof data !== 'object' || !('email' in data) || !('password' in data)) {
         return buildStandardServerResponse(
             false,
-            emailResult.message,
+            'Missing email or password',
             null,
-            emailResult.error,
-            emailResult.httpStatus
+            'Missing email or password in request payload',
+            bussinessStatusCode.BAD_REQUEST
         );
     }
 
-    if (!data || typeof data !== 'object' || !('password' in data) || !String(data.password)) {
+    const emailValidation = validateEmail(data.email);
+    if (!emailValidation.valid) {
         return buildStandardServerResponse(
             false,
-            'Missing password',
+            'Invalid email format',
             null,
-            'Missing password in request payload',
+            emailValidation.error,
             bussinessStatusCode.BAD_REQUEST
         );
     }
@@ -246,7 +224,7 @@ export const postAdminLoginParser = (
         true,
         'Request payload parsed successfully',
         {
-            email: emailResult.data!.email,
+            email: emailValidation.normalizedEmail!,
             password: String(data.password),
         },
         null,
@@ -256,30 +234,24 @@ export const postAdminLoginParser = (
 
 export const checkPostAdminEmailAvailabilityService = async (
     email: string
-): Promise<StandardServerResult<{ available: boolean }>> => {
+): Promise<StandardServerResult<boolean | null>> => {
     try {
-        const normalizedEmail = normalizeEmail(email);
-        const [postAdmin, pendingRegistration] = await Promise.all([
-            getPrismaClient().postAdmin.findUnique({
-                where: { email: normalizedEmail },
-                select: { id: true },
-            }),
-            getKV().get(registrationKey(normalizedEmail)),
-        ]);
-        const available = postAdmin === null && pendingRegistration === null;
+        const existing = await getPrismaClient().postAdmin.findUnique({
+            where: { email },
+        });
 
         return buildStandardServerResponse(
-            available,
-            available ? 'Post administrator email is available' : 'Post administrator email is already in use',
-            { available },
-            available ? null : 'The email is registered or has a pending registration',
-            available ? bussinessStatusCode.OK : bussinessStatusCode.CONFLICT
+            true,
+            existing ? 'Email is already registered' : 'Email is available',
+            !existing,
+            null,
+            bussinessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
             false,
-            'Failed to check Post administrator email',
-            { available: false },
+            'Failed to check email availability',
+            null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
         );
@@ -288,59 +260,71 @@ export const checkPostAdminEmailAvailabilityService = async (
 
 export const initializePostAdminRegistrationService = async (
     data: PostAdminRegisterRequestPayload
-): Promise<StandardServerResult<null>> => {
-    const availability = await checkPostAdminEmailAvailabilityService(data.email);
-    if (!availability.success) {
-        return buildStandardServerResponse(
-            false,
-            availability.message,
-            null,
-            availability.error,
-            availability.httpStatus
-        );
-    }
-
-    const key = registrationKey(data.email);
+): Promise<StandardServerResult<boolean | null>> => {
     try {
-        const token = createVerificationToken();
-        const pendingRegistration: PendingPostAdminRegistration = {
-            passwordHash: await bcrypt.hash(data.password, bcryptSaltRounds),
-            tokenHash: await sha256(token),
-        };
+        const { email, password } = data;
 
-        await getKV().put(key, JSON.stringify(pendingRegistration), {
-            expirationTtl: REGISTRATION_TTL_SECONDS,
+        // Check if email is already registered
+        const existing = await getPrismaClient().postAdmin.findUnique({
+            where: { email },
         });
 
-        const result = await getEmailManager().sendEmail(
-            data.email,
-            'Post administrator registration',
-            PostAdminVerificationTemplate({ token })
-        );
-
-        if (result.error) {
-            await getKV().delete(key);
+        if (existing) {
             return buildStandardServerResponse(
                 false,
-                'Failed to send Post administrator verification email',
+                'Email is already registered',
                 null,
-                result.error.message,
+                'Please use a different email address',
+                bussinessStatusCode.CONFLICT
+            );
+        }
+
+        // Generate 6-digit verification code
+        const verificationCode = generateVerificationCode();
+        const passwordHash = await bcrypt.hash(password, bcryptSaltRounds);
+
+        // Store pending registration
+        const pendingData: PendingPostAdminRegistration = {
+            passwordHash,
+        };
+
+        await storeVerificationCode(
+            registrationKey(email),
+            JSON.stringify(pendingData),
+            REGISTRATION_TTL_SECONDS
+        );
+
+        // Send verification email with 6-digit code
+        const emailTemplate = PostAdminVerificationTemplate({ code: verificationCode });
+        const sendResult = await sendVerificationEmail(
+            email,
+            'Post Administrator Registration Verification',
+            emailTemplate
+        );
+
+        if (!sendResult.success) {
+            // Clean up stored data if email fails
+            await deleteVerificationCode(registrationKey(email));
+            return buildStandardServerResponse(
+                false,
+                'Failed to send verification email',
+                null,
+                sendResult.error,
                 bussinessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
 
         return buildStandardServerResponse(
             true,
-            'Post administrator verification email sent successfully',
+            'Verification code sent successfully',
             null,
             null,
             bussinessStatusCode.OK
         );
     } catch (error) {
-        await getKV().delete(key).catch(() => undefined);
         return buildStandardServerResponse(
             false,
-            'Failed to initialize Post administrator registration',
+            'Failed to initialize registration',
             null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
@@ -351,77 +335,59 @@ export const initializePostAdminRegistrationService = async (
 export const validatePostAdminRegistrationService = async (
     data: PostAdminValidateRequestPayload
 ): Promise<StandardServerResult<PublicPostAdmin | null>> => {
-    const key = registrationKey(data.email);
     try {
-        const rawRegistration = await getKV().get(key);
-        if (!rawRegistration) {
+        const { email, code } = data;
+
+        // Get pending registration
+        const storedData = await getVerificationCode(registrationKey(email));
+        if (!storedData) {
             return buildStandardServerResponse(
                 false,
-                'Post administrator registration expired or not found',
+                'Registration session expired or not found',
                 null,
-                'Request a new verification email',
+                'Please start the registration process again',
                 bussinessStatusCode.GONE
             );
         }
 
-        let pendingRegistration: PendingPostAdminRegistration;
-        try {
-            pendingRegistration = JSON.parse(rawRegistration) as PendingPostAdminRegistration;
-        } catch {
-            return buildStandardServerResponse(
-                false,
-                'Invalid pending Post administrator registration',
-                null,
-                'Stored registration data is malformed',
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
+        const pending: PendingPostAdminRegistration = JSON.parse(storedData);
 
-        const submittedTokenHash = await sha256(data.token);
-        if (!constantTimeEquals(submittedTokenHash, pendingRegistration.tokenHash)) {
+        // Verify code (we need to retrieve the stored code from KV)
+        // Note: We need to store the code separately for verification
+        const storedCode = await getVerificationCode(`${registrationKey(email)}:code`);
+        if (!storedCode || !constantTimeEquals(storedCode, code)) {
             return buildStandardServerResponse(
                 false,
-                'Invalid Post administrator verification token',
+                'Invalid verification code',
                 null,
-                'The verification token is invalid',
+                'The provided code is incorrect',
                 bussinessStatusCode.BAD_REQUEST
             );
         }
 
-        const existingPostAdmin = await getPrismaClient().postAdmin.findUnique({
-            where: { email: data.email },
-            select: { id: true },
-        });
-        if (existingPostAdmin) {
-            await getKV().delete(key);
-            return buildStandardServerResponse(
-                false,
-                'Post administrator already exists',
-                null,
-                'The email is already registered',
-                bussinessStatusCode.CONFLICT
-            );
-        }
-
+        // Create post admin
         const postAdmin = await getPrismaClient().postAdmin.create({
             data: {
-                email: data.email,
-                password: pendingRegistration.passwordHash,
+                email,
+                password: pending.passwordHash,
             },
         });
-        await getKV().delete(key);
+
+        // Clean up pending registration
+        await deleteVerificationCode(registrationKey(email));
+        await deleteVerificationCode(`${registrationKey(email)}:code`);
 
         return buildStandardServerResponse(
             true,
-            'Post administrator registered successfully',
-            toPublicPostAdmin(postAdmin),
+            'Registration successful',
+            toPublicPostAdmin(postAdmin as PostAdminRecord),
             null,
             bussinessStatusCode.CREATED
         );
     } catch (error) {
         return buildStandardServerResponse(
             false,
-            'Failed to validate Post administrator registration',
+            'Failed to validate registration',
             null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
@@ -432,23 +398,36 @@ export const validatePostAdminRegistrationService = async (
 export const postAdminLoginService = async (
     c: Context,
     data: PostAdminLoginRequestPayload
-): Promise<StandardServerResult<{ postAdmin: PublicPostAdmin; token: string } | null>> => {
-    const invalidCredentials = () => buildStandardServerResponse<null>(
-        false,
-        'Invalid Post administrator email or password',
-        null,
-        'Invalid credentials',
-        bussinessStatusCode.UNAUTHORIZED
-    );
-
+): Promise<StandardServerResult<PublicPostAdmin | null>> => {
     try {
+        const { email, password } = data;
+
         const postAdmin = await getPrismaClient().postAdmin.findUnique({
-            where: { email: data.email },
+            where: { email },
         });
-        if (!postAdmin || !(await bcrypt.compare(data.password, postAdmin.password))) {
-            return invalidCredentials();
+
+        if (!postAdmin) {
+            return buildStandardServerResponse(
+                false,
+                'Invalid email or password',
+                null,
+                'The email or password you entered is incorrect',
+                bussinessStatusCode.UNAUTHORIZED
+            );
         }
 
+        const passwordValid = await bcrypt.compare(password, postAdmin.password);
+        if (!passwordValid) {
+            return buildStandardServerResponse(
+                false,
+                'Invalid email or password',
+                null,
+                'The email or password you entered is incorrect',
+                bussinessStatusCode.UNAUTHORIZED
+            );
+        }
+
+        // Generate token and set cookie
         const token = await generatePostAdminToken(c, {
             id: postAdmin.id,
             email: postAdmin.email,
@@ -457,18 +436,15 @@ export const postAdminLoginService = async (
 
         return buildStandardServerResponse(
             true,
-            'Post administrator login successful',
-            {
-                postAdmin: toPublicPostAdmin(postAdmin),
-                token,
-            },
+            'Login successful',
+            toPublicPostAdmin(postAdmin as PostAdminRecord),
             null,
             bussinessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
             false,
-            'Post administrator login failed',
+            'Failed to login',
             null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
@@ -476,49 +452,60 @@ export const postAdminLoginService = async (
     }
 };
 
-export const postAdminLogoutService = (c: Context): StandardServerResult<null> => {
-    clearPostAdminAuthCookie(c);
-    return buildStandardServerResponse(
-        true,
-        'Post administrator logout successful',
-        null,
-        null,
-        bussinessStatusCode.OK
-    );
-};
-
-export const getCurrentPostAdminService = async (
+export const postAdminLogoutService = async (
     c: Context
-): Promise<StandardServerResult<PublicPostAdmin | null>> => {
-    const identity = c.get('postAdmin');
+): Promise<StandardServerResult<boolean | null>> => {
     try {
-        const postAdmin = await getPrismaClient().postAdmin.findFirst({
-            where: {
-                id: identity.id,
-                email: identity.email,
-            },
-        });
-        if (!postAdmin) {
-            return buildStandardServerResponse(
-                false,
-                'Post administrator no longer exists',
-                null,
-                'Post administrator identity was not found',
-                bussinessStatusCode.UNAUTHORIZED
-            );
-        }
-
+        clearPostAdminAuthCookie(c);
         return buildStandardServerResponse(
             true,
-            'Current Post administrator retrieved successfully',
-            toPublicPostAdmin(postAdmin),
+            'Logout successful',
+            null,
             null,
             bussinessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
             false,
-            'Failed to retrieve current Post administrator',
+            'Failed to logout',
+            null,
+            error instanceof Error ? error.message : 'Unknown error',
+            bussinessStatusCode.INTERNAL_SERVER_ERROR
+        );
+    }
+};
+
+export const getCurrentPostAdminService = async (
+    c: Context
+): Promise<StandardServerResult<PublicPostAdmin | null>> => {
+    const postAdminIdentity = c.get('postAdmin');
+
+    try {
+        const postAdmin = await getPrismaClient().postAdmin.findUnique({
+            where: { id: postAdminIdentity.id },
+        });
+
+        if (!postAdmin) {
+            return buildStandardServerResponse(
+                false,
+                'Post administrator not found',
+                null,
+                'The authenticated post administrator no longer exists',
+                bussinessStatusCode.NOT_FOUND
+            );
+        }
+
+        return buildStandardServerResponse(
+            true,
+            'Post administrator info retrieved successfully',
+            toPublicPostAdmin(postAdmin as PostAdminRecord),
+            null,
+            bussinessStatusCode.OK
+        );
+    } catch (error) {
+        return buildStandardServerResponse(
+            false,
+            'Failed to get post administrator info',
             null,
             error instanceof Error ? error.message : 'Unknown error',
             bussinessStatusCode.INTERNAL_SERVER_ERROR
@@ -584,7 +571,7 @@ export const bindCurrentUserService = async (
             return buildStandardServerResponse(
                 true,
                 'User and Post administrator are already bound',
-                toPublicPostAdmin(postAdmin),
+                toPublicPostAdmin(postAdmin as PostAdminRecord),
                 null,
                 bussinessStatusCode.OK
             );
@@ -598,7 +585,7 @@ export const bindCurrentUserService = async (
         return buildStandardServerResponse(
             true,
             'User and Post administrator bound successfully',
-            toPublicPostAdmin(updatedPostAdmin),
+            toPublicPostAdmin(updatedPostAdmin as PostAdminRecord),
             null,
             bussinessStatusCode.OK
         );
@@ -658,7 +645,7 @@ export const unbindCurrentUserService = async (
         return buildStandardServerResponse(
             true,
             'User and Post administrator unbound successfully',
-            toPublicPostAdmin(updatedPostAdmin),
+            toPublicPostAdmin(updatedPostAdmin as PostAdminRecord),
             null,
             bussinessStatusCode.OK
         );

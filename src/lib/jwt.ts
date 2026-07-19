@@ -1,63 +1,77 @@
-import { sign, verify } from 'hono/jwt';
+/**
+ * User JWT utilities
+ * Uses shared JWT core module for token operations
+ */
 import { Context } from 'hono';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { JWT_EXPIRATION_TIME, JWT_SIGN_METHOD } from '@/common/config/jwtConfig';
+import {
+    generateJWTToken,
+    verifyJWTToken,
+    getTokenFromCookie,
+    setAuthCookie as setAuthCookieCore,
+    clearAuthCookie as clearAuthCookieCore,
+} from './jwtCore';
 
-export interface JWTPayload extends Record<string, unknown>{
-  username: string;
-  exp?: number;
+const USER_COOKIE_NAME = 'auth_token';
+
+export interface JWTPayload extends Record<string, unknown> {
+    username: string;
+    exp?: number;
 }
 
-const getJWTSecret = (c: Context): string => {
-  const secret = c.env?.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
-  }
-  return secret;
+/**
+ * Generate JWT token for user
+ * @param c - Hono context
+ * @param payload - User payload (username)
+ * @returns Signed JWT token
+ */
+export const generateToken = async (
+    c: Context,
+    payload: Omit<JWTPayload, 'exp'>
+): Promise<string> => {
+    return generateJWTToken(c, payload);
 };
 
-export const generateToken = async (c: Context, payload: Omit<JWTPayload, 'exp'>) => {
-  const secret = getJWTSecret(c);
-  const expiresIn = JWT_EXPIRATION_TIME;
-  
-  const exp = Math.floor(Date.now() / 1000) + expiresIn;
-  const token = await sign(
-    { ...payload, exp },
-    secret,
-    JWT_SIGN_METHOD
-  );
-  return token;
+/**
+ * Verify user JWT token
+ * @param c - Hono context
+ * @param token - JWT token to verify
+ * @returns Decoded payload or null if invalid
+ */
+export const verifyToken = async (
+    c: Context,
+    token: string
+): Promise<JWTPayload | null> => {
+    return verifyJWTToken<JWTPayload>(c, token);
 };
 
-export const verifyToken = async (c: Context, token: string): Promise<JWTPayload | null> => {
-  try {
-    const secret = getJWTSecret(c);
-    const payload = await verify(token, secret, JWT_SIGN_METHOD) as JWTPayload;
-    return payload;
-  } catch (error) {
-    return null;
-  }
+/**
+ * Get current user from cookie
+ * @param c - Hono context
+ * @returns User payload or null if not authenticated
+ */
+export const getCurrentUser = async (
+    c: Context
+): Promise<JWTPayload | null> => {
+    const token = getTokenFromCookie(c, USER_COOKIE_NAME);
+    if (!token) {
+        return null;
+    }
+    return verifyToken(c, token);
 };
 
-export const getCurrentUser = async (c: Context): Promise<JWTPayload | null> => {
-  const token = getCookie(c, 'auth_token');
-  if (!token) return null;
-  
-  return await verifyToken(c, token);
-};
-
+/**
+ * Set user authentication cookie
+ * @param c - Hono context
+ * @param token - JWT token to store
+ */
 export const setAuthCookie = (c: Context, token: string) => {
-  const isProduction = c.env?.ENVIRONMENT === 'production';
-  
-  setCookie(c, 'auth_token', token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
-    maxAge: JWT_EXPIRATION_TIME,
-    path: '/',
-  });
+    setAuthCookieCore(c, USER_COOKIE_NAME, token);
 };
 
+/**
+ * Clear user authentication cookie
+ * @param c - Hono context
+ */
 export const clearAuthCookie = (c: Context) => {
-  deleteCookie(c, 'auth_token', { path: '/' });
+    clearAuthCookieCore(c, USER_COOKIE_NAME);
 };

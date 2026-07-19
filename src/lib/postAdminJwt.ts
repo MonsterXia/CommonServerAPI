@@ -1,8 +1,16 @@
+/**
+ * Post Administrator JWT utilities
+ * Uses shared JWT core module for token operations
+ */
 import { Context } from 'hono';
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { sign, verify } from 'hono/jwt';
-import { JWT_EXPIRATION_TIME, JWT_SIGN_METHOD } from '@/common/config/jwtConfig';
 import { PostAdminIdentity } from '@/model/post/postAdmin';
+import {
+    generateJWTToken,
+    verifyJWTToken,
+    getTokenFromCookie,
+    setAuthCookie,
+    clearAuthCookie,
+} from './jwtCore';
 
 const POST_ADMIN_COOKIE_NAME = 'post_auth_token';
 
@@ -13,77 +21,75 @@ export interface PostAdminJWTPayload extends Record<string, unknown> {
     exp?: number;
 }
 
-const getJWTSecret = (c: Context): string => {
-    const secret = c.env?.JWT_SECRET;
-    if (!secret) {
-        throw new Error('JWT_SECRET is not configured');
-    }
-    return secret;
-};
-
+/**
+ * Generate JWT token for post administrator
+ * @param c - Hono context
+ * @param identity - Post admin identity (id and email)
+ * @returns Signed JWT token
+ */
 export const generatePostAdminToken = async (
     c: Context,
     identity: PostAdminIdentity
 ): Promise<string> => {
-    const exp = Math.floor(Date.now() / 1000) + JWT_EXPIRATION_TIME;
-    return sign(
-        {
-            postAdminId: identity.id,
-            email: identity.email,
-            kind: 'post-admin',
-            exp,
-        },
-        getJWTSecret(c),
-        JWT_SIGN_METHOD
-    );
+    return generateJWTToken(c, {
+        postAdminId: identity.id,
+        email: identity.email,
+        kind: 'post-admin',
+    });
 };
 
+/**
+ * Verify post administrator JWT token
+ * @param c - Hono context
+ * @param token - JWT token to verify
+ * @returns Decoded payload or null if invalid
+ */
 export const verifyPostAdminToken = async (
     c: Context,
     token: string
 ): Promise<PostAdminJWTPayload | null> => {
-    try {
-        const payload = await verify(
-            token,
-            getJWTSecret(c),
-            JWT_SIGN_METHOD
-        ) as PostAdminJWTPayload;
+    const payload = await verifyJWTToken<PostAdminJWTPayload>(c, token);
 
-        if (
-            payload.kind !== 'post-admin'
-            || typeof payload.postAdminId !== 'number'
-            || typeof payload.email !== 'string'
-        ) {
-            return null;
-        }
-
-        return payload;
-    } catch {
+    if (
+        !payload ||
+        payload.kind !== 'post-admin' ||
+        typeof payload.postAdminId !== 'number' ||
+        typeof payload.email !== 'string'
+    ) {
         return null;
     }
+
+    return payload;
 };
 
+/**
+ * Get current post admin from cookie
+ * @param c - Hono context
+ * @returns Post admin payload or null if not authenticated
+ */
 export const getCurrentPostAdmin = async (
     c: Context
 ): Promise<PostAdminJWTPayload | null> => {
-    const token = getCookie(c, POST_ADMIN_COOKIE_NAME);
+    const token = getTokenFromCookie(c, POST_ADMIN_COOKIE_NAME);
     if (!token) {
         return null;
     }
     return verifyPostAdminToken(c, token);
 };
 
+/**
+ * Set post admin authentication cookie
+ * @param c - Hono context
+ * @param token - JWT token to store
+ */
 export const setPostAdminAuthCookie = (c: Context, token: string) => {
-    const isSecureRequest = new URL(c.req.url).protocol === 'https:';
-    setCookie(c, POST_ADMIN_COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: isSecureRequest,
-        sameSite: 'lax',
-        maxAge: JWT_EXPIRATION_TIME,
-        path: '/',
-    });
+    setAuthCookie(c, POST_ADMIN_COOKIE_NAME, token);
 };
 
+/**
+ * Clear post admin authentication cookie
+ * @param c - Hono context
+ */
 export const clearPostAdminAuthCookie = (c: Context) => {
-    deleteCookie(c, POST_ADMIN_COOKIE_NAME, { path: '/' });
+    clearAuthCookie(c, POST_ADMIN_COOKIE_NAME);
 };

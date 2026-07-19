@@ -57,7 +57,40 @@ describe('Post administrator request parsing', () => {
         expect(result.httpStatus).toBe(400);
     });
 
-    it('requires a registration verification token', () => {
+    it('accepts a valid 6-digit verification code', () => {
+        const result = postAdminValidationParser({
+            email: 'admin@example.com',
+            code: '123456',
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({
+            email: 'admin@example.com',
+            code: '123456',
+        });
+    });
+
+    it('rejects a verification code with wrong format', () => {
+        const result = postAdminValidationParser({
+            email: 'admin@example.com',
+            code: '12345',  // too short
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.httpStatus).toBe(400);
+    });
+
+    it('rejects a non-numeric verification code', () => {
+        const result = postAdminValidationParser({
+            email: 'admin@example.com',
+            code: 'abcdef',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.httpStatus).toBe(400);
+    });
+
+    it('requires a verification code', () => {
         const result = postAdminValidationParser({ email: 'admin@example.com' });
 
         expect(result.success).toBe(false);
