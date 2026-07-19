@@ -8,7 +8,9 @@ import {
     constantTimeEquals,
     deleteVerificationCode,
     generateVerificationCode,
+    generateVerificationToken,
     getVerificationCode,
+    sha256Hash,
     storeVerificationCode,
     sendVerificationEmail,
 } from '@/common/service/verificationService';
@@ -25,6 +27,7 @@ import {
     PublicPostAdmin,
 } from '@/model/post/postAdmin';
 import { StandardServerResult } from '@/model/util/hono';
+import { getFrontendBaseUrl } from '@/common/config/frontend';
 import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
 
 const REGISTRATION_TTL_SECONDS = 30 * 60;
@@ -163,33 +166,24 @@ export const postAdminValidationParser = (
         );
     }
 
-    if (!data || typeof data !== 'object' || !('code' in data) || !String(data.code).trim()) {
+    if (!data || typeof data !== 'object' || !('token' in data) || !String(data.token).trim()) {
         return buildStandardServerResponse(
             false,
-            'Missing verification code',
+            'Missing verification token',
             null,
-            'Missing verification code in request payload',
+            'Missing verification token in request payload',
             bussinessStatusCode.BAD_REQUEST
         );
     }
 
-    const code = String(data.code).trim();
-    if (!/^\d{6}$/.test(code)) {
-        return buildStandardServerResponse(
-            false,
-            'Invalid verification code format',
-            null,
-            'Verification code must be a 6-digit number',
-            bussinessStatusCode.BAD_REQUEST
-        );
-    }
+    const token = String(data.token).trim();
 
     return buildStandardServerResponse(
         true,
         'Request payload parsed successfully',
         {
             email: emailResult.data!.email,
-            code,
+            token,
         },
         null,
         bussinessStatusCode.OK
@@ -259,6 +253,7 @@ export const checkPostAdminEmailAvailabilityService = async (
 };
 
 export const initializePostAdminRegistrationService = async (
+    c: Context,
     data: PostAdminRegisterRequestPayload
 ): Promise<StandardServerResult<boolean | null>> => {
     try {
@@ -279,11 +274,12 @@ export const initializePostAdminRegistrationService = async (
             );
         }
 
-        // Generate 6-digit verification code
-        const verificationCode = generateVerificationCode();
+        // Generate verification token and hash it
+        const verificationToken = generateVerificationToken();
+        const tokenHash = await sha256Hash(verificationToken);
         const passwordHash = await bcrypt.hash(password, bcryptSaltRounds);
 
-        // Store pending registration
+        // Store pending registration with hashed token
         const pendingData: PendingPostAdminRegistration = {
             passwordHash,
         };
@@ -294,8 +290,19 @@ export const initializePostAdminRegistrationService = async (
             REGISTRATION_TTL_SECONDS
         );
 
-        // Send verification email with 6-digit code
-        const emailTemplate = PostAdminVerificationTemplate({ code: verificationCode });
+        // Store the token hash separately for verification
+        await storeVerificationCode(
+            `${registrationKey(email)}:token`,
+            tokenHash,
+            REGISTRATION_TTL_SECONDS
+        );
+
+        // Build verification link
+        const frontendBaseUrl = getFrontendBaseUrl(c.env.APP_ENV);
+        const verificationLink = `${frontendBaseUrl}/server/register/username/${encodeURIComponent(email)}/${verificationToken}`;
+
+        // Send verification email with link
+        const emailTemplate = PostAdminVerificationTemplate({ link: verificationLink });
         const sendResult = await sendVerificationEmail(
             email,
             'Post Administrator Registration Verification',
@@ -305,6 +312,7 @@ export const initializePostAdminRegistrationService = async (
         if (!sendResult.success) {
             // Clean up stored data if email fails
             await deleteVerificationCode(registrationKey(email));
+            await deleteVerificationCode(`${registrationKey(email)}:token`);
             return buildStandardServerResponse(
                 false,
                 'Failed to send verification email',
@@ -316,7 +324,7 @@ export const initializePostAdminRegistrationService = async (
 
         return buildStandardServerResponse(
             true,
-            'Verification code sent successfully',
+            'Verification email sent successfully',
             null,
             null,
             bussinessStatusCode.OK
@@ -336,7 +344,7 @@ export const validatePostAdminRegistrationService = async (
     data: PostAdminValidateRequestPayload
 ): Promise<StandardServerResult<PublicPostAdmin | null>> => {
     try {
-        const { email, code } = data;
+        const { email, token } = data;
 
         // Get pending registration
         const storedData = await getVerificationCode(registrationKey(email));
@@ -352,15 +360,25 @@ export const validatePostAdminRegistrationService = async (
 
         const pending: PendingPostAdminRegistration = JSON.parse(storedData);
 
-        // Verify code (we need to retrieve the stored code from KV)
-        // Note: We need to store the code separately for verification
-        const storedCode = await getVerificationCode(`${registrationKey(email)}:code`);
-        if (!storedCode || !constantTimeEquals(storedCode, code)) {
+        // Verify token by hashing submitted token and comparing with stored hash
+        const storedHash = await getVerificationCode(`${registrationKey(email)}:token`);
+        if (!storedHash) {
             return buildStandardServerResponse(
                 false,
-                'Invalid verification code',
+                'Verification token expired or not found',
                 null,
-                'The provided code is incorrect',
+                'Please start the registration process again',
+                bussinessStatusCode.GONE
+            );
+        }
+
+        const submittedHash = await sha256Hash(token);
+        if (!constantTimeEquals(storedHash, submittedHash)) {
+            return buildStandardServerResponse(
+                false,
+                'Invalid verification token',
+                null,
+                'The provided token is incorrect',
                 bussinessStatusCode.BAD_REQUEST
             );
         }
@@ -375,7 +393,7 @@ export const validatePostAdminRegistrationService = async (
 
         // Clean up pending registration
         await deleteVerificationCode(registrationKey(email));
-        await deleteVerificationCode(`${registrationKey(email)}:code`);
+        await deleteVerificationCode(`${registrationKey(email)}:token`);
 
         return buildStandardServerResponse(
             true,

@@ -45,7 +45,7 @@ class PostAdminController {
             }
             return buildContextJson(
                 c,
-                await initializePostAdminRegistrationService(parserResult.data!)
+                await initializePostAdminRegistrationService(c, parserResult.data!)
             );
         } catch (error) {
             return buildErrorContextJson(
