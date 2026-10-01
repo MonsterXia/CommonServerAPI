@@ -176,7 +176,7 @@ Include `postAdmin` in `getCurrentUserService` and omit the Post-admin password 
 - Modify: `src/router/router.ts`
 - Modify: `package.json`
 - Modify: `package-lock.json`
-- Create: `src/service/post/postAdminService.test.ts`
+- Create: `tests/service/post/postAdminService.test.ts`
 - Modify: `README.md`
 - Modify: `src/controller/user/userController.ts`
 - Modify: `src/router/user/superAdmin.ts`

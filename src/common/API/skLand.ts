@@ -103,18 +103,17 @@ export const retryWhen401SkLandCheckInAPI = async (
                 return JSON.stringify(res.data)
             }
         } else {
-            return JSON.stringify(res.data)
+            throw new Error(res.message || 'SKLand check-in failed');
         }
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
             const result = error.response.data;
-            if (error.response.status === 401 && error.response.data.code === 10003) {
+            if (error.response.status === 401 && error.response.data.code === 10003 && delay === undefined) {
                 let timestampDiff = Number(signHeaders.timeStamp) - Number(result.timestamp)
                 console.log('Adjusting time difference beturn standart time and Hypergrypy by ', timestampDiff, ' seconds')
                 return retryWhen401SkLandCheckInAPI(cred, data, url, appCode, timestampDiff);
-            } else if (error.response.status === 403 && result.code === 10001) {
-                return result.message;
             }
+            throw new Error(typeof result.message === 'string' ? result.message : 'SKLand check-in failed');
         }
         throw error;
     }

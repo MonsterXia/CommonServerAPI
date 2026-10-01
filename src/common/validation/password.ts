@@ -21,6 +21,10 @@ export const validatePasswordStrength = (password: string): PasswordValidationRe
         return { valid: false, error: 'Password must be between 6 and 128 characters long' };
     }
 
+    if (new TextEncoder().encode(password).length > 72) {
+        return { valid: false, error: 'Password must not exceed 72 UTF-8 bytes' };
+    }
+
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);

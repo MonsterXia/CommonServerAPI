@@ -28,6 +28,7 @@ model User {
   hypergryphAccount HypergryphAccount?
   postAdmin         PostAdmin?
   isAdmin           Boolean            @default(false)
+  sessionVersion    Int                @default(0)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -51,4 +52,13 @@ model HypergryphAccount {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PasswordResetChallenge {
+  username  String @id
+  email     String
+  codeHash  String
+  expiresAt BigInt
+  sentAt    BigInt
+  attempts  Int @default(0)
 }

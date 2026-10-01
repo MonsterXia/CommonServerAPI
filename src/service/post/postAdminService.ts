@@ -2,12 +2,11 @@ import bcrypt from 'bcryptjs';
 import { Context } from 'hono';
 import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import PostAdminVerificationTemplate from '@/common/Email/template/postAdminVerificationTemplate';
-import { validateEmail, normalizeEmail } from '@/common/validation/email';
+import { validateEmail } from '@/common/validation/email';
 import { validatePasswordStrength } from '@/common/validation/password';
 import {
     constantTimeEquals,
     deleteVerificationCode,
-    generateVerificationCode,
     generateVerificationToken,
     getVerificationCode,
     sha256Hash,
@@ -28,13 +27,14 @@ import {
 } from '@/model/post/postAdmin';
 import { StandardServerResult } from '@/model/util/hono';
 import { getFrontendBaseUrl } from '@/common/config/frontend';
-import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
+import { buildStandardServerResponse, businessStatusCode } from '@/util/hono';
 
 const REGISTRATION_TTL_SECONDS = 30 * 60;
 const REGISTRATION_KEY_PREFIX = 'post-admin-registration:';
 
 interface PendingPostAdminRegistration {
     passwordHash: string;
+    tokenHash: string;
 }
 
 interface PostAdminRecord extends PublicPostAdmin {
@@ -67,6 +67,11 @@ export const getPostAdminBindingDecision = (input: {
 
 const registrationKey = (email: string) => `${REGISTRATION_KEY_PREFIX}${email}`;
 
+const hasDatabaseErrorCode = (error: unknown, ...codes: string[]): boolean => {
+    return typeof error === 'object' && error !== null && 'code' in error
+        && typeof error.code === 'string' && codes.includes(error.code);
+};
+
 export const toPublicPostAdmin = (postAdmin: PostAdminRecord): PublicPostAdmin => {
     const { password: _, ...publicPostAdmin } = postAdmin;
     return publicPostAdmin;
@@ -81,7 +86,7 @@ export const postAdminEmailParser = (
             'Missing email',
             null,
             'Missing email in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -92,7 +97,7 @@ export const postAdminEmailParser = (
             'Invalid email format',
             null,
             emailValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -101,7 +106,7 @@ export const postAdminEmailParser = (
         'Request payload parsed successfully',
         { email: emailValidation.normalizedEmail! },
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 };
 
@@ -119,13 +124,13 @@ export const postAdminRegisterParser = (
         );
     }
 
-    if (!data || typeof data !== 'object' || !('password' in data)) {
+    if (!data || typeof data !== 'object' || !('password' in data) || typeof data.password !== 'string') {
         return buildStandardServerResponse(
             false,
             'Missing password',
             null,
             'Missing password in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -136,7 +141,7 @@ export const postAdminRegisterParser = (
             'Password validation failed',
             null,
             passwordValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -148,7 +153,7 @@ export const postAdminRegisterParser = (
             password: String(data.password),
         },
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 };
 
@@ -166,13 +171,13 @@ export const postAdminValidationParser = (
         );
     }
 
-    if (!data || typeof data !== 'object' || !('token' in data) || !String(data.token).trim()) {
+    if (!data || typeof data !== 'object' || !('token' in data) || typeof data.token !== 'string' || !data.token.trim()) {
         return buildStandardServerResponse(
             false,
             'Missing verification token',
             null,
             'Missing verification token in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -186,20 +191,20 @@ export const postAdminValidationParser = (
             token,
         },
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 };
 
 export const postAdminLoginParser = (
     data: unknown
 ): StandardServerResult<PostAdminLoginRequestPayload | null> => {
-    if (!data || typeof data !== 'object' || !('email' in data) || !('password' in data)) {
+    if (!data || typeof data !== 'object' || !('email' in data) || !('password' in data) || typeof data.password !== 'string' || !data.password) {
         return buildStandardServerResponse(
             false,
             'Missing email or password',
             null,
             'Missing email or password in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -210,7 +215,7 @@ export const postAdminLoginParser = (
             'Invalid email format',
             null,
             emailValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
 
@@ -222,7 +227,7 @@ export const postAdminLoginParser = (
             password: String(data.password),
         },
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 };
 
@@ -234,12 +239,15 @@ export const checkPostAdminEmailAvailabilityService = async (
             where: { email },
         });
 
+        const pending = !existing && await getVerificationCode(registrationKey(email));
+        const available = !existing && !pending;
+
         return buildStandardServerResponse(
             true,
-            existing ? 'Email is already registered' : 'Email is available',
-            !existing,
+            existing ? 'Email is already registered' : pending ? 'Registration is pending verification' : 'Email is available',
+            available,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -247,7 +255,7 @@ export const checkPostAdminEmailAvailabilityService = async (
             'Failed to check email availability',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -270,7 +278,17 @@ export const initializePostAdminRegistrationService = async (
                 'Email is already registered',
                 null,
                 'Please use a different email address',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
+            );
+        }
+
+        if (await getVerificationCode(registrationKey(email))) {
+            return buildStandardServerResponse(
+                false,
+                'Registration is pending verification',
+                null,
+                'Use the verification link already sent or wait until it expires',
+                businessStatusCode.CONFLICT
             );
         }
 
@@ -282,18 +300,12 @@ export const initializePostAdminRegistrationService = async (
         // Store pending registration with hashed token
         const pendingData: PendingPostAdminRegistration = {
             passwordHash,
+            tokenHash,
         };
 
         await storeVerificationCode(
             registrationKey(email),
             JSON.stringify(pendingData),
-            REGISTRATION_TTL_SECONDS
-        );
-
-        // Store the token hash separately for verification
-        await storeVerificationCode(
-            `${registrationKey(email)}:token`,
-            tokenHash,
             REGISTRATION_TTL_SECONDS
         );
 
@@ -312,13 +324,12 @@ export const initializePostAdminRegistrationService = async (
         if (!sendResult.success) {
             // Clean up stored data if email fails
             await deleteVerificationCode(registrationKey(email));
-            await deleteVerificationCode(`${registrationKey(email)}:token`);
             return buildStandardServerResponse(
                 false,
                 'Failed to send verification email',
                 null,
                 sendResult.error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
 
@@ -327,7 +338,7 @@ export const initializePostAdminRegistrationService = async (
             'Verification email sent successfully',
             null,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -335,7 +346,7 @@ export const initializePostAdminRegistrationService = async (
             'Failed to initialize registration',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -354,21 +365,22 @@ export const validatePostAdminRegistrationService = async (
                 'Registration session expired or not found',
                 null,
                 'Please start the registration process again',
-                bussinessStatusCode.GONE
+                businessStatusCode.GONE
             );
         }
 
         const pending: PendingPostAdminRegistration = JSON.parse(storedData);
 
-        // Verify token by hashing submitted token and comparing with stored hash
-        const storedHash = await getVerificationCode(`${registrationKey(email)}:token`);
-        if (!storedHash) {
+        // Read the token hash from the same snapshot as the password.
+        // Legacy split records cannot guarantee that pairing and must expire.
+        const storedHash = pending.tokenHash;
+        if (typeof storedHash !== 'string' || !storedHash || typeof pending.passwordHash !== 'string') {
             return buildStandardServerResponse(
                 false,
                 'Verification token expired or not found',
                 null,
                 'Please start the registration process again',
-                bussinessStatusCode.GONE
+                businessStatusCode.GONE
             );
         }
 
@@ -379,7 +391,7 @@ export const validatePostAdminRegistrationService = async (
                 'Invalid verification token',
                 null,
                 'The provided token is incorrect',
-                bussinessStatusCode.BAD_REQUEST
+                businessStatusCode.BAD_REQUEST
             );
         }
 
@@ -393,22 +405,27 @@ export const validatePostAdminRegistrationService = async (
 
         // Clean up pending registration
         await deleteVerificationCode(registrationKey(email));
-        await deleteVerificationCode(`${registrationKey(email)}:token`);
 
         return buildStandardServerResponse(
             true,
             'Registration successful',
             toPublicPostAdmin(postAdmin as PostAdminRecord),
             null,
-            bussinessStatusCode.CREATED
+            businessStatusCode.CREATED
         );
     } catch (error) {
+        if (hasDatabaseErrorCode(error, 'P2002')) {
+            return buildStandardServerResponse(
+                false, 'Email is already registered', null,
+                'Please log in to the existing account', businessStatusCode.CONFLICT
+            );
+        }
         return buildStandardServerResponse(
             false,
             'Failed to validate registration',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -430,7 +447,7 @@ export const postAdminLoginService = async (
                 'Invalid email or password',
                 null,
                 'The email or password you entered is incorrect',
-                bussinessStatusCode.UNAUTHORIZED
+                businessStatusCode.UNAUTHORIZED
             );
         }
 
@@ -441,7 +458,7 @@ export const postAdminLoginService = async (
                 'Invalid email or password',
                 null,
                 'The email or password you entered is incorrect',
-                bussinessStatusCode.UNAUTHORIZED
+                businessStatusCode.UNAUTHORIZED
             );
         }
 
@@ -457,7 +474,7 @@ export const postAdminLoginService = async (
             'Login successful',
             toPublicPostAdmin(postAdmin as PostAdminRecord),
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -465,7 +482,7 @@ export const postAdminLoginService = async (
             'Failed to login',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -480,7 +497,7 @@ export const postAdminLogoutService = async (
             'Logout successful',
             null,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -488,7 +505,7 @@ export const postAdminLogoutService = async (
             'Failed to logout',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -509,7 +526,7 @@ export const getCurrentPostAdminService = async (
                 'Post administrator not found',
                 null,
                 'The authenticated post administrator no longer exists',
-                bussinessStatusCode.NOT_FOUND
+                businessStatusCode.NOT_FOUND
             );
         }
 
@@ -518,7 +535,7 @@ export const getCurrentPostAdminService = async (
             'Post administrator info retrieved successfully',
             toPublicPostAdmin(postAdmin as PostAdminRecord),
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -526,7 +543,7 @@ export const getCurrentPostAdminService = async (
             'Failed to get post administrator info',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -554,7 +571,7 @@ export const bindCurrentUserService = async (
                 'User or Post administrator was not found',
                 null,
                 'One of the authenticated identities no longer exists',
-                bussinessStatusCode.NOT_FOUND
+                businessStatusCode.NOT_FOUND
             );
         }
 
@@ -571,7 +588,7 @@ export const bindCurrentUserService = async (
                 'Post administrator is already bound to another user',
                 null,
                 'Remove the existing binding first',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
             );
         }
 
@@ -581,7 +598,7 @@ export const bindCurrentUserService = async (
                 'User is already bound to another Post administrator',
                 null,
                 'Remove the existing binding first',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
             );
         }
 
@@ -591,12 +608,12 @@ export const bindCurrentUserService = async (
                 'User and Post administrator are already bound',
                 toPublicPostAdmin(postAdmin as PostAdminRecord),
                 null,
-                bussinessStatusCode.OK
+                businessStatusCode.OK
             );
         }
 
         const updatedPostAdmin = await getPrismaClient().postAdmin.update({
-            where: { id: postAdmin.id },
+            where: { id: postAdmin.id, AND: { userId: null } },
             data: { userId: user.id },
         });
 
@@ -605,15 +622,21 @@ export const bindCurrentUserService = async (
             'User and Post administrator bound successfully',
             toPublicPostAdmin(updatedPostAdmin as PostAdminRecord),
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
+        if (hasDatabaseErrorCode(error, 'P2002', 'P2025')) {
+            return buildStandardServerResponse(
+                false, 'The account binding changed', null,
+                'Refresh both accounts before retrying', businessStatusCode.CONFLICT
+            );
+        }
         return buildStandardServerResponse(
             false,
             'Failed to bind user and Post administrator',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };
@@ -641,7 +664,7 @@ export const unbindCurrentUserService = async (
                 'User or Post administrator was not found',
                 null,
                 'One of the authenticated identities no longer exists',
-                bussinessStatusCode.NOT_FOUND
+                businessStatusCode.NOT_FOUND
             );
         }
 
@@ -651,12 +674,12 @@ export const unbindCurrentUserService = async (
                 'The active identities are not bound to each other',
                 null,
                 'No matching binding exists',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
             );
         }
 
         const updatedPostAdmin = await getPrismaClient().postAdmin.update({
-            where: { id: postAdmin.id },
+            where: { id: postAdmin.id, userId: user.id },
             data: { userId: null },
         });
 
@@ -665,15 +688,21 @@ export const unbindCurrentUserService = async (
             'User and Post administrator unbound successfully',
             toPublicPostAdmin(updatedPostAdmin as PostAdminRecord),
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
+        if (hasDatabaseErrorCode(error, 'P2002', 'P2025')) {
+            return buildStandardServerResponse(
+                false, 'The account binding changed', null,
+                'Refresh both accounts before retrying', businessStatusCode.CONFLICT
+            );
+        }
         return buildStandardServerResponse(
             false,
             'Failed to unbind user and Post administrator',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 };

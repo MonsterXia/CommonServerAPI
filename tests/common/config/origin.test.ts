@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCORSAllowedOrigin, isAllowedOrigin } from './origin';
+import { getCORSAllowedOrigin, isAllowedOrigin } from '@/common/config/origin';
 
 describe('CORS and CSRF origin policy', () => {
     it('allows the migrated Post frontend origin in production', () => {

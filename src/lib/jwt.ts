@@ -11,11 +11,14 @@ import {
     clearAuthCookie as clearAuthCookieCore,
 } from './jwtCore';
 
+import { getPrismaClient } from './prisma';
+
 const USER_COOKIE_NAME = 'auth_token';
 
 export interface JWTPayload extends Record<string, unknown> {
     username: string;
     exp?: number;
+    sessionVersion?: number;
 }
 
 /**
@@ -41,7 +44,11 @@ export const verifyToken = async (
     c: Context,
     token: string
 ): Promise<JWTPayload | null> => {
-    return verifyJWTToken<JWTPayload>(c, token);
+    const payload = await verifyJWTToken<JWTPayload>(c, token);
+    if (!payload || payload.kind !== undefined || typeof payload.username !== 'string' || !payload.username.trim()) {
+        return null;
+    }
+    return payload;
 };
 
 /**
@@ -56,7 +63,11 @@ export const getCurrentUser = async (
     if (!token) {
         return null;
     }
-    return verifyToken(c, token);
+    const payload = await verifyToken(c, token);
+    if (!payload) return null;
+    const user = await getPrismaClient().user.findUnique({ where: { username: payload.username }, select: { sessionVersion: true } });
+    if (!user || (payload.sessionVersion ?? 0) !== user.sessionVersion) return null;
+    return payload;
 };
 
 /**

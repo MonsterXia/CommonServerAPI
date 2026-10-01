@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
 import { StandardServerResult } from '@/model/util/hono';
 
-export const bussinessStatusCode: Record<string, ContentfulStatusCode> = {
+export const businessStatusCode: Record<string, ContentfulStatusCode> = {
     CONTINUE: 100,
     PROCESSING: 102,
     EARLY_HINTS: 103,
@@ -88,7 +88,7 @@ export const buildErrorContextJson = (
     c: Context,
     message: string,
     error: any,
-    httpStatus: ContentfulStatusCode = bussinessStatusCode.INTERNAL_SERVER_ERROR
+    httpStatus: ContentfulStatusCode = businessStatusCode.INTERNAL_SERVER_ERROR
 ) => {
     return c.json({
         message,
@@ -102,7 +102,7 @@ export const buildStandardServerResponse = <T>(
     message: string = '',
     data?: T,
     error?: any,
-    httpStatus: ContentfulStatusCode = bussinessStatusCode.OK
+    httpStatus: ContentfulStatusCode = businessStatusCode.OK
 ): StandardServerResult<T> => {
     return {
         success,

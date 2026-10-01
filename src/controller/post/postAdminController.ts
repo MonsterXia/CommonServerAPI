@@ -13,7 +13,7 @@ import {
     unbindCurrentUserService,
     validatePostAdminRegistrationService,
 } from '@/service/post/postAdminService';
-import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '@/util/hono';
+import { buildContextJson, buildErrorContextJson, businessStatusCode } from '@/util/hono';
 
 class PostAdminController {
     public static checkEmailAvailability = async (c: Context) => {
@@ -32,7 +32,7 @@ class PostAdminController {
                 c,
                 'Check Post administrator email failed',
                 error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     };
@@ -52,7 +52,7 @@ class PostAdminController {
                 c,
                 'Initialize Post administrator registration failed',
                 error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     };
@@ -72,7 +72,7 @@ class PostAdminController {
                 c,
                 'Validate Post administrator registration failed',
                 error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     };
@@ -89,7 +89,7 @@ class PostAdminController {
                 c,
                 'Post administrator login failed',
                 error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     };

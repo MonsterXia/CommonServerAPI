@@ -14,7 +14,7 @@ import {
     UserInfo
 } from '@/model/game/hypergraph/user'
 import { StandardServerResult } from '@/model/util/hono';
-import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
+import { buildStandardServerResponse, businessStatusCode } from '@/util/hono';
 
 export const sendPhoneCodeParser = (data: any): StandardServerResult<HypergryphSendPhoneCodePayload | null> => {
     if (!data.phone) {
@@ -23,7 +23,7 @@ export const sendPhoneCodeParser = (data: any): StandardServerResult<HypergryphS
             'Missing phone',
             null,
             'Missing phone in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -32,7 +32,8 @@ export const sendPhoneCodeParser = (data: any): StandardServerResult<HypergryphS
         {
             phone: data.phone.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -43,7 +44,7 @@ export const tokenByPhoneCodeParser = (data: any): StandardServerResult<Hypergry
             'Missing phone or code',
             null,
             'Missing phone or code in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -53,7 +54,8 @@ export const tokenByPhoneCodeParser = (data: any): StandardServerResult<Hypergry
             phone: data.phone.toString(),
             code: data.code.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -64,7 +66,7 @@ export const tokenByPasswordParser = (data: any): StandardServerResult<Hypergryp
             'Missing phone or password',
             null,
             'Missing phone or password in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -74,7 +76,8 @@ export const tokenByPasswordParser = (data: any): StandardServerResult<Hypergryp
             phone: data.phone.toString(),
             password: data.password.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -85,7 +88,7 @@ export const tokenValidateParser = (params: any): StandardServerResult<Hypergryp
             'Missing token',
             null,
             'Missing token in request params',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -94,7 +97,8 @@ export const tokenValidateParser = (params: any): StandardServerResult<Hypergryp
         {
             token: params.token.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -105,7 +109,7 @@ export const getHypergryphOauthTokenParser = (data: any): StandardServerResult<H
             'Missing token',
             null,
             'Missing token in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -114,7 +118,8 @@ export const getHypergryphOauthTokenParser = (data: any): StandardServerResult<H
         {
             token: data.token.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -126,7 +131,8 @@ export const fetchHypergryphPhoneCode = async (data: HypergryphSendPhoneCodePayl
                 true,
                 'Fetch phone code successfully',
                 res.msg,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             );
         } else {
             return buildStandardServerResponse(
@@ -134,7 +140,7 @@ export const fetchHypergryphPhoneCode = async (data: HypergryphSendPhoneCodePayl
                 'Failed to fetch phone code',
                 null,
                 res.msg,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     } catch (e) {
@@ -143,7 +149,7 @@ export const fetchHypergryphPhoneCode = async (data: HypergryphSendPhoneCodePayl
             'Failed to fetch phone code',
             null,
             e,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -156,7 +162,8 @@ export const fetchHypergryphTokenByPhoneCode = async (data: HypergryphTokenByPho
                 true,
                 'Fetch token by phone code successfully',
                 res.data.token,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             );
         } else {
             return buildStandardServerResponse(
@@ -164,7 +171,7 @@ export const fetchHypergryphTokenByPhoneCode = async (data: HypergryphTokenByPho
                 'Failed to fetch token by phone code',
                 null,
                 res.msg,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     } catch (e) {
@@ -173,7 +180,7 @@ export const fetchHypergryphTokenByPhoneCode = async (data: HypergryphTokenByPho
             'Failed to fetch token by phone code',
             null,
             e,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -186,7 +193,8 @@ export const fetchHypergryphTokenByPassword = async (data: HypergryphTokenByPass
                 true,
                 'Fetch token by password successfully',
                 res.data.token,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             );
         } else {
             return buildStandardServerResponse(
@@ -194,7 +202,7 @@ export const fetchHypergryphTokenByPassword = async (data: HypergryphTokenByPass
                 'Failed to fetch token by password',
                 null,
                 res.msg,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     } catch (e) {
@@ -203,7 +211,7 @@ export const fetchHypergryphTokenByPassword = async (data: HypergryphTokenByPass
             'Failed to fetch token by password',
             null,
             e,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -216,7 +224,8 @@ export const fetchHypergryphTokenValidate = async (params: HypergryphTokenValida
                 true,
                 'Token validate successfully',
                 res.data,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             );
         } else {
             return buildStandardServerResponse(
@@ -224,7 +233,7 @@ export const fetchHypergryphTokenValidate = async (params: HypergryphTokenValida
                 'Failed to validate token',
                 null,
                 res.msg,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     } catch (e) {
@@ -233,7 +242,7 @@ export const fetchHypergryphTokenValidate = async (params: HypergryphTokenValida
             'Failed to validate token',
             null,
             e,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -246,7 +255,8 @@ export const fetchHypergryphOauthToken = async (data: HypergryphGrantOAuthTokenR
                 true,
                 'Fetch Hypergryph skLand Oauth Token successfully',
                 res.data.code,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             );
         } else {
             return buildStandardServerResponse(
@@ -254,7 +264,7 @@ export const fetchHypergryphOauthToken = async (data: HypergryphGrantOAuthTokenR
                 'Failed to fetch Hypergryph skLand Oauth Token',
                 null,
                 res.msg,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     } catch (e) {
@@ -263,7 +273,7 @@ export const fetchHypergryphOauthToken = async (data: HypergryphGrantOAuthTokenR
             'Failed to fetch Hypergryph skLand Oauth Token',
             null,
             e,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }

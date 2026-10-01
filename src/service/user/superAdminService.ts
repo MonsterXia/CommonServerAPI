@@ -1,17 +1,18 @@
 import { Context } from "hono";
 import { StandardServerResult } from "@/model/util/hono";
 import { checkUsernameExistService } from "./userService";
-import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
+import { buildStandardServerResponse, businessStatusCode } from "@/util/hono";
 import { getPrismaClient } from "@/lib/prisma";
 import { SetSuperAdminRequestPayload } from "@/model/user/superAdmin";
 
 export const setAdminParser = (data: any): StandardServerResult<SetSuperAdminRequestPayload | null> => {
-    if (!data.username) {
+    if (!data || typeof data.username !== 'string' || !data.username.trim()) {
         return buildStandardServerResponse(
             false,
             'Missing username',
             null,
-            bussinessStatusCode.BAD_REQUEST
+            null,
+            businessStatusCode.BAD_REQUEST
         );
     }
     return buildStandardServerResponse(
@@ -20,7 +21,8 @@ export const setAdminParser = (data: any): StandardServerResult<SetSuperAdminReq
         {
             username: data.username.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     );
 }
 
@@ -33,7 +35,8 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
                 false,
                 'User does not exist',
                 null,
-                bussinessStatusCode.NOT_FOUND
+                null,
+                businessStatusCode.NOT_FOUND
             );
         }
 
@@ -55,7 +58,8 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
                 false,
                 'Failed to set admin status',
                 null,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                null,
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
         // Simulate setting admin status for the user
@@ -63,14 +67,16 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
             true,
             'Admin status set successfully',
             null,
-            bussinessStatusCode.OK
+            null,
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
             false,
             'Error setting admin status',
             null,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            null,
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }

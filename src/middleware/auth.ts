@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono';
 import { getCurrentUser } from '@/lib/jwt';
 import { getCurrentPostAdmin } from '@/lib/postAdminJwt';
-import { buildErrorContextJson, bussinessStatusCode } from '@/util/hono';
+import { buildErrorContextJson, businessStatusCode } from '@/util/hono';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -23,7 +23,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
       c, 
       "Unauthorized, token is missing or invalid.", 
       null, 
-      bussinessStatusCode.UNAUTHORIZED
+      businessStatusCode.UNAUTHORIZED
     );
   }
   
@@ -54,7 +54,7 @@ export const postAdminAuthMiddleware = async (c: Context, next: Next) => {
       c,
       'Unauthorized, Post administrator token is missing or invalid.',
       null,
-      bussinessStatusCode.UNAUTHORIZED
+      businessStatusCode.UNAUTHORIZED
     );
   }
 

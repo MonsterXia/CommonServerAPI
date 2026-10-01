@@ -8,7 +8,7 @@ import {
 import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import { getPrismaClient } from '@/lib/prisma';
 import { clearAuthCookie, generateToken, setAuthCookie } from '@/lib/jwt';
-import { buildStandardServerResponse, bussinessStatusCode } from '@/util/hono';
+import { buildStandardServerResponse, businessStatusCode } from '@/util/hono';
 import { StandardServerResult } from '@/model/util/hono';
 import VerificationTemplate from '@/common/Email/template/verificationTemplate';
 import { validateEmail } from '@/common/validation/email';
@@ -27,13 +27,18 @@ const VERIFICATION_CODE_TTL_SECONDS = 5 * 60;
 const VERIFICATION_CODE_KEY_PREFIX = 'email-verification-code-';
 
 export const userRegisterParser = (data: any): StandardServerResult<UserRegisterRequestPayload | null> => {
-    if (!data.username || !data.password || !data.email || !data.registrationCode) {
+    if (
+        !data || typeof data.username !== 'string' || !data.username.trim()
+        || typeof data.password !== 'string' || !data.password
+        || typeof data.email !== 'string' || !data.email
+        || typeof data.registrationCode !== 'string' || !data.registrationCode
+    ) {
         return buildStandardServerResponse(
             false,
             'Missing username or password or email or registration code',
             null,
             'Missing username or password or email or registration code in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -45,7 +50,7 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
             'Password validation failed',
             null,
             passwordValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -55,7 +60,7 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
             'Username length invalid',
             null,
             'Username must be between 3 and 30 characters long',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -67,7 +72,7 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
             'Invalid email format',
             null,
             emailValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -80,18 +85,19 @@ export const userRegisterParser = (data: any): StandardServerResult<UserRegister
             email: emailValidation.normalizedEmail!,
             registrationCode: data.registrationCode.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
 export const userPasswordLoginParser = (data: any): StandardServerResult<UserPasswordLoginRequestPayload | null> => {
-    if (!data.username || !data.password) {
+    if (!data || typeof data.username !== 'string' || !data.username.trim() || typeof data.password !== 'string' || !data.password) {
         return buildStandardServerResponse(
             false,
             'Missing username or password',
             null,
             'Missing username or password in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -101,18 +107,19 @@ export const userPasswordLoginParser = (data: any): StandardServerResult<UserPas
             username: data.username.toString(),
             password: data.password.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
 export const sendEmailVerificationCodeParser = (data: any): StandardServerResult<SendEmailVerificationCodeRequestPayload | null> => {
-    if (!data.email || !data.type) {
+    if (!data || typeof data.email !== 'string' || !data.email || !data.type) {
         return buildStandardServerResponse(
             false,
             'Missing email or type',
             null,
             'Missing email or type in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -122,7 +129,7 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
             'Invalid verification type',
             null,
             'Invalid verification type. Must be either "register" or "reset_password"',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -134,7 +141,7 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
             'Invalid email format',
             null,
             emailValidation.error,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
 
@@ -145,7 +152,8 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
             email: emailValidation.normalizedEmail!,
             type: data.type
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -158,7 +166,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 'Username already exists',
                 null,
                 'Username already exists',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
             )
         }
         const emailExist = await checkEmailExistService(c, user.email);
@@ -168,7 +176,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 'Email already exists',
                 null,
                 'Email already exists',
-                bussinessStatusCode.CONFLICT
+                businessStatusCode.CONFLICT
             )
         }
 
@@ -182,7 +190,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 'Verification code expired or not found',
                 null,
                 'Verification code expired or not found. Please request a new verification code.',
-                bussinessStatusCode.BAD_REQUEST
+                businessStatusCode.BAD_REQUEST
             )
         }
 
@@ -192,7 +200,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 'Invalid verification code',
                 null,
                 'Invalid verification code. Please check the code and try again.',
-                bussinessStatusCode.BAD_REQUEST
+                businessStatusCode.BAD_REQUEST
             )
         }
 
@@ -208,7 +216,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
             }
         })
 
-        const token = await generateToken(c, { username: newUser.username });
+        const token = await generateToken(c, { username: newUser.username, sessionVersion: newUser.sessionVersion });
         setAuthCookie(c, token);
         const { password: _, ...userWithoutPassword } = newUser;
 
@@ -219,7 +227,8 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
                 user: userWithoutPassword,
                 token
             },
-            bussinessStatusCode.CREATED
+            null,
+            businessStatusCode.CREATED
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -227,7 +236,7 @@ export const userRegisterService = async (c: Context, user: UserRegisterRequestP
             'User registration failed',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -240,7 +249,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
                 'Invalid username',
                 null,
                 'Username is empty or contains only whitespace',
-                bussinessStatusCode.BAD_REQUEST
+                businessStatusCode.BAD_REQUEST
             );
         }
 
@@ -257,7 +266,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
             user !== null ? 'Username exists' : 'Username does not exist',
             user !== null,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -265,7 +274,7 @@ export const checkUsernameExistService = async (c: Context, username: string): P
             'Failed to check username existence',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -278,7 +287,7 @@ export const checkEmailExistService = async (c: Context, email: string): Promise
                 'Invalid email',
                 null,
                 'Email is empty or contains only whitespace',
-                bussinessStatusCode.BAD_REQUEST
+                businessStatusCode.BAD_REQUEST
             );
         }
 
@@ -297,7 +306,7 @@ export const checkEmailExistService = async (c: Context, email: string): Promise
             user.length > 0 ? 'Email exists' : 'Email does not exist',
             user.length > 0,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -305,7 +314,7 @@ export const checkEmailExistService = async (c: Context, email: string): Promise
             'Failed to check email existence',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
@@ -320,25 +329,23 @@ export const userPasswordLoginService = async (
             'Invalid username or password',
             null,
             'Invalid username or password',
-            bussinessStatusCode.FORBIDDEN
+            businessStatusCode.FORBIDDEN
         )
-        const exist = await checkUsernameExistService(c, user.username);
-        if (!exist.success) {
-            return exist;
-        }
-
         const foundUser = await getPrismaClient().user.findUnique({
             where: {
                 username: user.username
             }
         })
 
-        const passwordMatch = await bcrypt.compare(user.password, foundUser!.password);
+        if (!foundUser) {
+            return failedResponse;
+        }
+        const passwordMatch = await bcrypt.compare(user.password, foundUser.password);
         if (!passwordMatch) {
             return failedResponse;
         }
         const token = await generateToken(c, {
-            username: user.username
+            username: user.username, sessionVersion: foundUser.sessionVersion
         });
         setAuthCookie(c, token);
 
@@ -347,7 +354,7 @@ export const userPasswordLoginService = async (
             'Login successful',
             { token },
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -355,7 +362,7 @@ export const userPasswordLoginService = async (
             'Login failed',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         )
     }
 }
@@ -370,7 +377,7 @@ export const userLogoutService = async (
             'Logout successful',
             null,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -378,51 +385,46 @@ export const userLogoutService = async (
             'Logout failed',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
 
 export const getCurrentUserService = async (c: Context): Promise<StandardServerResult<any>> => {
     const user = c.get('user');
-    const failedResponse = buildStandardServerResponse(
-        false,
-        'Invalid username',
-        null,
-        null,
-        bussinessStatusCode.BAD_REQUEST
-    );
-    const exist = await checkUsernameExistService(c, user.username);
-    if (!exist.success) {
-        return exist;
-    }
-
     const userInfo = await getPrismaClient().user.findUnique({
         where: { username: user.username },
-        include: {
-            hypergryphAccount: true,
+        select: {
+            id: true,
+            username: true,
+            email: true,
+            phone: true,
+            isAdmin: true,
+            createdAt: true,
+            updatedAt: true,
+            hypergryphAccount: {
+                select: { phone: true, userId: true, createdAt: true, updatedAt: true }
+            },
             postAdmin: {
                 select: {
-                    id: true,
-                    email: true,
-                    organization: true,
-                    role: true,
-                    userId: true,
-                    createdAt: true,
-                    updatedAt: true,
+                    id: true, email: true, organization: true, role: true,
+                    userId: true, createdAt: true, updatedAt: true,
                 }
             }
         }
     });
-
-    const { password: _, ...userInfoWithoutPassword } = userInfo!;
+    if (!userInfo) {
+        return buildStandardServerResponse(
+            false, 'User not found', null, null, businessStatusCode.NOT_FOUND
+        );
+    }
 
     return buildStandardServerResponse(
         true,
         'User info retrieved successfully',
-        userInfoWithoutPassword,
+        userInfo,
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 }
 
@@ -433,7 +435,7 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
         'Invalid username',
         null,
         null,
-        bussinessStatusCode.BAD_REQUEST
+        businessStatusCode.BAD_REQUEST
     );
     const exist = await checkUsernameExistService(c, user.username);
     if (!exist.success) {
@@ -452,7 +454,7 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
         'User info retrieved successfully',
         userInfo,
         null,
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 }
 
@@ -466,7 +468,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                     'Email already exists',
                     null,
                     'Email already exists. Please use a different email address.',
-                    bussinessStatusCode.CONFLICT
+                    businessStatusCode.CONFLICT
                 )
             }
         }
@@ -483,7 +485,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                 'Verification code already sent',
                 null,
                 'A verification code has already been sent to this email address. Please wait before requesting another one.',
-                bussinessStatusCode.TOO_MANY_REQUESTS
+                businessStatusCode.TOO_MANY_REQUESTS
             );
         }
 
@@ -502,7 +504,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
                 'Failed to send verification code',
                 null,
                 sendResult.error,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
 
@@ -511,7 +513,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
             'Verification code sent successfully',
             null,
             null,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
         return buildStandardServerResponse(
@@ -519,7 +521,7 @@ export const sendEmailVerificationCodeService = async (c: Context, data: SendEma
             'Failed to send verification code',
             null,
             error instanceof Error ? error.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }

@@ -12,7 +12,7 @@ import {
     SkLandGetCredRequestPayload
 } from "@/model/game/hypergraph/skIsland/user";
 import { StandardServerResult } from "@/model/util/hono";
-import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
+import { buildStandardServerResponse, businessStatusCode } from "@/util/hono";
 
 export const getCredParser = (data: any): StandardServerResult<SkLandGetCredRequestPayload | null> => {
     if (!data.code) {
@@ -21,7 +21,7 @@ export const getCredParser = (data: any): StandardServerResult<SkLandGetCredRequ
             'Missing code',
             null,
             'Missing code in request payload',
-            bussinessStatusCode.BAD_REQUEST,
+            businessStatusCode.BAD_REQUEST,
         )
     }
     return buildStandardServerResponse(
@@ -30,7 +30,8 @@ export const getCredParser = (data: any): StandardServerResult<SkLandGetCredRequ
         {
             code: data.code.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -41,7 +42,7 @@ export const validateCredParser = (data: any): StandardServerResult<SkLandCredVa
             'Missing cred',
             null,
             'Missing cred in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -50,7 +51,8 @@ export const validateCredParser = (data: any): StandardServerResult<SkLandCredVa
         {
             cred: data.cred.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -61,7 +63,7 @@ export const getHypergryphGameAccountsParser = (data: any): StandardServerResult
             'Missing cred or token',
             null,
             'Missing cred or token in request payload',
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         )
     }
     return buildStandardServerResponse(
@@ -71,7 +73,8 @@ export const getHypergryphGameAccountsParser = (data: any): StandardServerResult
             cred: data.cred.toString(),
             token: data.token.toString()
         },
-        bussinessStatusCode.OK
+        null,
+        businessStatusCode.OK
     )
 }
 
@@ -83,7 +86,8 @@ export const fetchSkLandCred = async (data: SkLandGetCredRequestPayload): Promis
                 true,
                 'Get cred successfully',
                 res.data,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             )
         } else {
             return buildStandardServerResponse(
@@ -91,7 +95,7 @@ export const fetchSkLandCred = async (data: SkLandGetCredRequestPayload): Promis
                 'SKLand Get Cred Failed',
                 null,
                 res.message,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     } catch (e) {
@@ -100,7 +104,7 @@ export const fetchSkLandCred = async (data: SkLandGetCredRequestPayload): Promis
             'SKLand Get Cred Error',
             null,
             e instanceof Error ? e.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         )
     }
 }
@@ -115,7 +119,8 @@ export const fetchSkLandCredValidate = async (
                 true,
                 'Get cred successfully',
                 res.data,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             )
         } else {
             return buildStandardServerResponse(
@@ -123,7 +128,7 @@ export const fetchSkLandCredValidate = async (
                 'SKLand Cred Validate Failed',
                 null,
                 res.message,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     } catch (e) {
@@ -132,7 +137,7 @@ export const fetchSkLandCredValidate = async (
             'SKLand Cred Validate Error',
             null,
             e instanceof Error ? e.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         )
     }
 }
@@ -146,19 +151,17 @@ export const fetchSkLandGameAccounts = async (
             const gameAccounts = res.data.list;
             let simpleAccounts: SKLandCheckInRequestPayload[] = gameAccounts.flatMap(account => {
                 if (account.appCode === 'arknights') {
-                    return account.bindingList.map(binding => ({
+                    return account.bindingList.filter(binding => !binding.isDelete).map(binding => ({
                         appCode: account.appCode,
                         nickName: binding.nickName,
                         uid: binding.uid,
                         gameId: binding.channelMasterId,
                     }));
                 } else if (account.appCode === 'endfield') {
-                    return account.bindingList.map(binding => ({
-                        appCode: account.appCode,
-                        nickName: binding.defaultRole!.nickname,
-                        uid: binding.defaultRole!.roleId,
-                        gameId: binding.defaultRole!.serverId,
-                    }));
+                    return account.bindingList.filter(binding => !binding.isDelete).flatMap(binding => {
+                        const roles = binding.roles?.length ? binding.roles : binding.defaultRole ? [binding.defaultRole] : [];
+                        return roles.map(role => ({ appCode: account.appCode, nickName: role.nickname, uid: role.roleId, gameId: role.serverId }));
+                    });
                 }
                 return [];
             });
@@ -167,7 +170,8 @@ export const fetchSkLandGameAccounts = async (
                 true,
                 'Get game accounts successfully',
                 simpleAccounts,
-                bussinessStatusCode.OK
+                null,
+                businessStatusCode.OK
             )
         } else {
             return buildStandardServerResponse(
@@ -175,7 +179,7 @@ export const fetchSkLandGameAccounts = async (
                 'SKLand Game Accounts Failed',
                 null,
                 res.message,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     } catch (e) {
@@ -184,7 +188,7 @@ export const fetchSkLandGameAccounts = async (
             'SKLand Game Accounts Error',
             null,
             e instanceof Error ? e.message : 'Unknown error',
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         )
     }
 }

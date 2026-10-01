@@ -11,7 +11,7 @@ import {
     tokenByPhoneCodeParser,
     tokenValidateParser
 } from '@/service/game/hypergryph/loginService';
-import { buildContextJson, buildErrorContextJson, bussinessStatusCode } from '@/util/hono';
+import { buildContextJson, buildErrorContextJson, businessStatusCode } from '@/util/hono';
 
 
 class hypergryphController {
@@ -31,7 +31,7 @@ class hypergryphController {
                 c, 
                 'Fetch Hypergryph Phone Code Error', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     }
@@ -52,7 +52,7 @@ class hypergryphController {
                 c, 
                 'Get Hypergryph Token By Phone Code Error', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     }
@@ -73,7 +73,7 @@ class hypergryphController {
                 c, 
                 'Get Hypergryph Token By Password Error', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     }
@@ -94,7 +94,7 @@ class hypergryphController {
                 c, 
                 'Hypergryph Token Validate Error', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     }
@@ -115,7 +115,7 @@ class hypergryphController {
                 c, 
                 'Hypergryph Grant OAuth Token Error', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
     }

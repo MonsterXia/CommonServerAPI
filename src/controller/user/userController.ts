@@ -13,7 +13,7 @@ import {
 import { 
     buildContextJson, 
     buildErrorContextJson, 
-    bussinessStatusCode
+    businessStatusCode
  } from '@/util/hono';
 
 class userController {
@@ -25,7 +25,7 @@ class userController {
                     c,
                     'Missing username',
                     'Username route parameter is required',
-                    bussinessStatusCode.BAD_REQUEST
+                    businessStatusCode.BAD_REQUEST
                 );
             }
             const isExist = await checkUsernameExistService(c, username);
@@ -36,7 +36,7 @@ class userController {
                 c, 
                 'Check Username Exist Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -57,7 +57,7 @@ class userController {
                 c, 
                 'User Register Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -80,7 +80,7 @@ class userController {
                 c, 
                 'User Login Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -97,7 +97,7 @@ class userController {
                 c, 
                 'Logout failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -111,7 +111,7 @@ class userController {
                 c, 
                 'Get Current User Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -131,7 +131,7 @@ class userController {
                 c, 
                 'Send Email Verification Code Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }

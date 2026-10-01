@@ -27,9 +27,18 @@ export interface SendVerificationCodeResult {
  * @returns Random numeric code
  */
 export const generateVerificationCode = (length: number = 6): string => {
-    const min = Math.pow(10, length - 1);
-    const max = Math.pow(10, length) - 1;
-    return Math.floor(min + Math.random() * (max - min + 1)).toString();
+    if (!Number.isInteger(length) || length < 1 || length > 9) {
+        throw new RangeError('Verification code length must be an integer between 1 and 9');
+    }
+    const min = 10 ** (length - 1);
+    const range = 9 * min;
+    // Reject the incomplete range at the top to avoid modulo bias.
+    const limit = Math.floor(2 ** 32 / range) * range;
+    const random = new Uint32Array(1);
+    do {
+        crypto.getRandomValues(random);
+    } while (random[0] >= limit);
+    return (min + random[0] % range).toString();
 };
 
 /**

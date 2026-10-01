@@ -2,7 +2,7 @@ import { fetchSkLandCheckInAPI } from "@/common/API/skLand";
 import { SKLandAccountsRequestParams, SKLandCheckInRequestPayload } from "@/model/game/hypergraph/skIsland/user";
 import { HypergryphTokenByPasswordRequestPayload } from "@/model/game/hypergraph/user";
 import { StandardServerResult } from "@/model/util/hono";
-import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
+import { buildStandardServerResponse, businessStatusCode } from "@/util/hono";
 import { fetchHypergryphOauthToken, fetchHypergryphTokenByPassword } from "../loginService";
 import { fetchSkLandCred, fetchSkLandGameAccounts } from "./loginService";
 
@@ -31,7 +31,8 @@ export const skLandCheckInCore = async (
             checkInResults,
             errorResults,
         },
-        errorResults.length === 0 ? bussinessStatusCode.OK : bussinessStatusCode.MULTI_STATUS
+        null,
+        errorResults.length === 0 ? businessStatusCode.OK : businessStatusCode.MULTI_STATUS
     );
 }
 

@@ -14,6 +14,32 @@ npm run dev
 npm run deploy
 ```
 
+### Tests
+
+业务源码放在 `src/`，测试统一放在根目录 `tests/`，并保持对应的目录结构。
+例如 `src/service/user/userService.ts` 对应 `tests/service/user/userService.test.ts`。
+测试使用 `@/` 导入源码及指定 mock 目标，Vitest 只收集 `tests/**/*.test.ts`。
+
+```bash
+npm run typecheck
+npm test
+# 运行单个模块的测试
+npm test -- tests/service/user/userService.test.ts
+```
+
+密码重置测试依赖 Node 内置的 `node:sqlite`。若当前 Node 版本需要显式启用该模块（例如 Node 22.12），使用 `NODE_OPTIONS=--experimental-sqlite npm test`。
+
+### Dependency security maintenance
+
+Use `npm ci` to reproduce the checked-in dependency tree, then run `npx prisma generate`,
+`npm run typecheck`, `npm test`, and `npx wrangler deploy --dry-run` before deploying.
+
+The scoped `overrides` in `package.json` replace vulnerable versions pinned upstream:
+Next.js in the email preview UI, MySQL2 in the Prisma CLI, and DeepmergeTS in the Prisma
+config loader. The DeepmergeTS 8 override changes Map merging behavior; this project's
+Prisma configuration uses plain objects. Recheck Prisma config loading and email previews
+when changing these overrides, and remove them once upstream pins patched versions.
+
 ## Set Local Variables
 ```bash
 npx wrangler secret put key
@@ -110,6 +136,10 @@ Registration validation accepts the token delivered by email:
 The implementation reuses the existing `DB`, `KV`, `JWT_SECRET`, and `RESEND_API_KEY`
 bindings. No secret value from the former PostAPI repository is required or copied.
 
+Pending registrations store the password hash and token hash together in one KV record.
+After upgrading from the older split-record format, users with an outstanding verification
+link must restart registration; existing accounts and login sessions are unaffected.
+
 #### Router
 
 ```typescript
@@ -143,7 +173,7 @@ export default somethingRouter2;
 import { 
     buildContextJson, 
     buildErrorContextJson, 
-    bussinessStatusCode 
+    businessStatusCode
 } from "@/util/hono";
 
 class superAdminController {
@@ -173,7 +203,7 @@ class superAdminController {
                 c, 
                 'Set User As Admin Failed', 
                 e,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -188,7 +218,7 @@ export default superAdminController;
 ```typescript
 import { Context } from "hono";
 import { StandardServerResult } from "@/model/util/hono";
-import { buildStandardServerResponse, bussinessStatusCode } from "@/util/hono";
+import { buildStandardServerResponse, businessStatusCode } from "@/util/hono";
 // Structure defined by you
 import { SetSuperAdminRequestPayload } from "@/model/user/superAdmin";
 
@@ -199,7 +229,7 @@ export const setAdminParser = (data: any): StandardServerResult<SetSuperAdminReq
             false,
             'Missing username',
             null,
-            bussinessStatusCode.BAD_REQUEST
+            businessStatusCode.BAD_REQUEST
         );
     }
     return buildStandardServerResponse(
@@ -208,7 +238,7 @@ export const setAdminParser = (data: any): StandardServerResult<SetSuperAdminReq
         {
             username: data.username.toString()
         },
-        bussinessStatusCode.OK
+        businessStatusCode.OK
     );
 }
 
@@ -221,7 +251,7 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
                 false,
                 'Failed info',
                 null,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
         // Success
@@ -229,7 +259,7 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
             true,
             'Success data',
             // your defined data here,
-            bussinessStatusCode.OK
+            businessStatusCode.OK
         );
     } catch (error) {
       	// Error
@@ -237,10 +267,49 @@ export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayl
             false,
             'Error message',
             null,
-            bussinessStatusCode.INTERNAL_SERVER_ERROR
+            businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
 }
 ```
 
 
+## EasonWeb 账号功能
+
+EasonWeb 现已接入普通用户登录/注册、邮箱验证码、密码重置、鹰角与 Post 管理员绑定、
+森空岛角色查询和手动签到。
+
+新增接口（响应保持 `{ message, data, httpStatus }`）：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| POST | `/user/password/reset/code` | `{ username, email }` 请求重置验证码 |
+| POST | `/user/password/reset` | `{ username, email, code, password }` 设置新密码 |
+| POST | `/game/hypergryph/account/sms` | 已登录用户请求鹰角短信验证码，参数 `{ phone }` |
+| POST | `/game/hypergryph/account/` | `{ phone, method: 'sms', code }` 或 `{ phone, method: 'password', password }` 登录并绑定/更新会话 |
+| DELETE | `/game/hypergryph/account/` | 解除当前用户的鹰角绑定 |
+| GET | `/game/hypergryph/account/games` | 查询绑定账号下的明日方舟及终末地角色 |
+| POST | `/game/hypergryph/account/check-in` | 对该账号的角色签到，部分失败返回 207 和明细 |
+
+鹰角账号接口均要求普通用户 `auth_token`。第三方 token 只存于后端，不返回给这些页面。
+Post 绑定沿用 `/post/admin/binding`，同时要求普通用户与管理员 Cookie。
+
+### 数据库升级与会话失效
+
+发布前先执行 `migrations/0006_password_reset.sql`，再部署后端和前端：
+
+```sh
+npx wrangler d1 migrations apply common-server-db --local
+# 生产发布时，备份/核对数据库后由发布流程执行：
+# npx wrangler d1 migrations apply common-server-db --remote
+npx prisma generate
+```
+
+本迁移添加 `User.sessionVersion`（默认 0）和 `PasswordResetChallenge` 表。
+现有未重置密码的用户可以继续使用旧会话；重置成功会递增版本并拒绝之前签发的 Cookie。
+重置码仅保存与服务端密钥关联的哈希，有效期 5 分钟，最多 5 次错误尝试；D1 原子批处理
+更新密码并消费挑战。相同未过期挑战不会重复发信，发送失败会清理对应记录。
+旧 `/user/email/verify` 的 `reset_password` 类型不用于新流程，请调用专用重置接口。
+
+测试覆盖本地真实 D1/KV 的注册、登录、Post 绑定和密码重置；邮件、短信和真实游戏平台调用
+使用替身验证，没有自动发送真实验证码或执行真实账号签到，也没有执行远程迁移或部署。

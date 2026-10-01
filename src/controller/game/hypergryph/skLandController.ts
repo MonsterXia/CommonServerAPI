@@ -10,7 +10,7 @@ import {
 import { 
     buildContextJson, 
     buildErrorContextJson, 
-    bussinessStatusCode 
+    businessStatusCode
 } from '@/util/hono';
 import { tokenByPasswordParser } from '@/service/game/hypergryph/loginService';
 import { tempCheckIn } from '@/service/game/hypergryph/skIsland/checkIn';
@@ -33,7 +33,7 @@ class skLandController {
                 c, 
                 'Fetch SKLand Cred Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -54,7 +54,7 @@ class skLandController {
                 c, 
                 'SKLand Cred Validate Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -75,7 +75,7 @@ class skLandController {
                 c, 
                 'Fetch SKLand Game Accounts Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }
@@ -96,7 +96,7 @@ class skLandController {
                 c, 
                 'SKLand Check In Failed', 
                 e, 
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }

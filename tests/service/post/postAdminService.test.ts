@@ -7,11 +7,12 @@ import {
 } from '@/lib/postAdminJwt';
 import {
     postAdminEmailParser,
+    postAdminLoginParser,
     getPostAdminBindingDecision,
     postAdminRegisterParser,
     postAdminValidationParser,
     toPublicPostAdmin,
-} from './postAdminService';
+} from '@/service/post/postAdminService';
 
 const contextWithSecret = {
     env: {
@@ -57,45 +58,23 @@ describe('Post administrator request parsing', () => {
         expect(result.httpStatus).toBe(400);
     });
 
-    it('accepts a valid 6-digit verification code', () => {
-        const result = postAdminValidationParser({
-            email: 'admin@example.com',
-            code: '123456',
-        });
-
+    it('accepts the verification token delivered by email', () => {
+        const token = '0123456789abcdef0123456789abcdef';
+        const result = postAdminValidationParser({ email: 'admin@example.com', token });
         expect(result.success).toBe(true);
-        expect(result.data).toEqual({
-            email: 'admin@example.com',
-            code: '123456',
-        });
+        expect(result.data).toEqual({ email: 'admin@example.com', token });
     });
 
-    it('rejects a verification code with wrong format', () => {
-        const result = postAdminValidationParser({
-            email: 'admin@example.com',
-            code: '12345',  // too short
-        });
-
-        expect(result.success).toBe(false);
-        expect(result.httpStatus).toBe(400);
+    it.each([undefined, null, 123456, {}, [], '   '])('rejects invalid token %s', token => {
+        expect(postAdminValidationParser({ email: 'admin@example.com', token }))
+            .toMatchObject({ success: false, httpStatus: 400 });
     });
 
-    it('rejects a non-numeric verification code', () => {
-        const result = postAdminValidationParser({
-            email: 'admin@example.com',
-            code: 'abcdef',
-        });
-
-        expect(result.success).toBe(false);
-        expect(result.httpStatus).toBe(400);
+    it.each([postAdminRegisterParser, postAdminLoginParser])('rejects non-string passwords', parser => {
+        expect(parser({ email: 'admin@example.com', password: ['Secure!Password'] }))
+            .toMatchObject({ success: false, httpStatus: 400 });
     });
 
-    it('requires a verification code', () => {
-        const result = postAdminValidationParser({ email: 'admin@example.com' });
-
-        expect(result.success).toBe(false);
-        expect(result.httpStatus).toBe(400);
-    });
 });
 
 describe('Post administrator identity isolation', () => {

@@ -6,7 +6,7 @@ import {
 import { 
     buildContextJson, 
     buildErrorContextJson, 
-    bussinessStatusCode 
+    businessStatusCode
 } from "@/util/hono";
 
 class superAdminController {
@@ -26,7 +26,7 @@ class superAdminController {
                 c, 
                 'Set User As Admin Failed', 
                 e,
-                bussinessStatusCode.INTERNAL_SERVER_ERROR
+                businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
     }

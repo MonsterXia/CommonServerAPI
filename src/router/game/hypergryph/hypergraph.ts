@@ -3,8 +3,11 @@ import endfieldRouter from './endfield/endfield';
 import skLandRouter from './skLand/skLand';
 import hypergryphController from '@/controller/game/hypergryph/hypergryphController';
 
+import accountRouter from './account';
+
 const hypergryphRouter = new Hono();
 
+hypergryphRouter.route('/account', accountRouter);
 hypergryphRouter.route('/endfield', endfieldRouter);
 hypergryphRouter.route('/skLand', skLandRouter);
 

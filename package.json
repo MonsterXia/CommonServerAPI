@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "deploy": "prisma generate && wrangler deploy",
-		"start": "wrangler dev --var APP_ENV:development",
-		"dev": "wrangler dev --var APP_ENV:development",
-		"test": "vitest run",
-		"typecheck": "tsc --noEmit",
+    "start": "wrangler dev --var APP_ENV:development",
+    "dev": "wrangler dev --var APP_ENV:development",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types",
     "email:dev": "email dev --dir src/common/Email/template"
   },
@@ -19,8 +19,8 @@
     "prisma": "^7.9.0-dev.8",
     "react-email": "^6.9.1",
     "typescript": "^5.0.4",
-		"vitest": "^4.1.10",
-    "wrangler": "^4.65.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.145.0"
   },
   "dependencies": {
     "@prisma/adapter-d1": "^7.9.0-dev.8",
@@ -35,6 +35,17 @@
     "resend": "^6.12.2",
     "socket.io-parser": "^4.2.6",
     "stripe": "^20.4.1",
-    "undici": "^7.24.5"
+    "undici": "^7.30.0"
+  },
+  "overrides": {
+    "@react-email/ui": {
+      "next": "16.3.8"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    },
+    "prisma": {
+      "mysql2": "3.24.5"
+    }
   }
 }
