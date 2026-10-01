@@ -1,6 +1,10 @@
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
-export const request = axios.create();
+export const request = axios.create({
+    adapter: 'fetch',
+    // Workers rejects Axios's browser default cache mode before sending requests.
+    fetchOptions: { cache: 'no-store' },
+});
 request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     return config;
 }, (error) => {
