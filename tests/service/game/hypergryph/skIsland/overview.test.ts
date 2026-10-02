@@ -45,3 +45,14 @@ it('distinguishes missing and invalid fields from real zero values', () => {
     expect(() => normalizeGameOverview(account, {})).toThrow('missing');
     expect(() => normalizeGameOverview({ ...account, appCode: 'endfield' }, { detail: {} })).toThrow('missing');
 });
+
+it('preserves the Endministrator game appearance without returning avatar resources', () => {
+    for (const [gender, expected] of [[1, 'male'], ['2', 'female'], [0, null], [undefined, null]] as const) {
+        const result = normalizeGameOverview({ ...account, appCode: 'endfield' }, { detail: {
+            base: { level: 1, gender, avatarUrl: 'https://example.com/private-avatar' },
+        } });
+        expect(result.profile.endministratorGender).toBe(expected);
+        expect(JSON.stringify(result)).not.toContain('private-avatar');
+    }
+    expect(normalizeGameOverview(account, { status: { level: 1, gender: 1 } }).profile).not.toHaveProperty('endministratorGender');
+});

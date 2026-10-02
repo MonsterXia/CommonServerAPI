@@ -74,6 +74,8 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
         fetchedAt: Math.floor(now / 1000),
         updatedAt: timestamp(endfield ? base.saveTime : base.storeTs),
         profile: {
+            // Game protagonist appearance, not the account holder's gender. No image data is returned.
+            ...(endfield ? { endministratorGender: num(base.gender) === 1 ? 'male' as const : num(base.gender) === 2 ? 'female' as const : null } : {}),
             level: num(base.level),
             worldLevel: endfield ? num(base.worldLevel) : null,
             registeredAt: timestamp(endfield ? base.createTime : base.registerTs),

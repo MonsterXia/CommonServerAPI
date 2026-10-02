@@ -44,6 +44,7 @@
 
 - `GET /game/hypergryph/account/overview?appCode=...&uid=...&gameId=...` 使用普通用户认证、`private, no-store`。服务端从当前绑定换取凭证，重新查询角色列表并同时匹配游戏、UID、区服；禁止仅凭客户端 UID 查询他人角色。
 - `src/common/API/skLand.ts` 请求固定森空岛域名：明日方舟 `/api/v1/game/player/info?uid=...`；国服终末地 `/web/v1/game/endfield/card/detail?roleId=...&serverId=...&userId=...`。终末地的 `userId` 来自森空岛凭证，不是游戏 UID。查询串签名与发送必须完全一致，时间校正最多重试一次。
+- 头像图片、URL、ID 映射均由 EasonWeb 的静态资源表维护，后端不新增图片请求、代理或运行时资源目录。终末地 `profile.endministratorGender` 仅携带游戏主角形象（上游 `base.gender` 的 1=male、2=female，未知为 null），不代表用户本人的性别；前端据此选择本地男女管理员图片。
 - `src/service/game/hypergryph/skIsland/overview.ts` 只选取展示字段，输出模型在 `src/model/game/hypergraph/skIsland/overview.ts`。不得透传完整上游响应、凭证或原始异常。
 - 明日方舟使用 `status`、`routine`、`campaign.reward`、`building`、`chars`；终末地使用 `data.detail` 下的 `base`、`dungeon`、`dailyMission`、`weeklyMission`、`bpSystem`、`achieve`、`chars`。`normalizeGameOverview` 的输入已经解开外层 `data`。
 - 缺失数值保持 `null`，零值保持 0；时间兼容秒/毫秒，非法时间转为 `null`。保留上游快照数值，不自行补算实时理智。明日方舟干员总数优先使用 `chars.length`（示例中 `status.charCnt` 会为 0）；终末地展示档案可能只是上游选择的干员，不能把列表长度当总收藏数。
