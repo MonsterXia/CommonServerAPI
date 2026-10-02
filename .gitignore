@@ -17,3 +17,6 @@ build
 .env*
 .dev.vars*
 /src/generated/prisma
+
+# Local-only Superpowers execution plans
+/docs/superpowers/plans/
