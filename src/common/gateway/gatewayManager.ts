@@ -1,4 +1,4 @@
-import { AxiosInstance } from "axios";
+import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import request from "./axiosClient";
 import { dominHypergraph } from "../config/predefinedDomin";
 
@@ -37,22 +37,22 @@ class gatewayManager {
         return `${baseURL}${endpoint}`;
     }
 
-    public async get<T>(url: string, params?: any, config?: any): Promise<T> {
+    public async get<T>(url: string, params?: object, config?: AxiosRequestConfig): Promise<T> {
         const response = await this._axiosInstance.get<T>(url, { params, ...config });
         return response.data;
     }
 
-    public async post<T>(url: string, data?: any, config?: any): Promise<T> {
+    public async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
         const response = await this._axiosInstance.post<T>(url, data, config);
         return response.data;
     }
 
-    public async put<T>(url: string, data?: any, config?: any): Promise<T> {
+    public async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
         const response = await this._axiosInstance.put<T>(url, data, config);
         return response.data;
     }
 
-    public async delete<T>(url: string, config?: any): Promise<T> {
+    public async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
         const response = await this._axiosInstance.delete<T>(url, config);
         return response.data;
     }

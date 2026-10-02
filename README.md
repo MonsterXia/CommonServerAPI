@@ -167,116 +167,42 @@ somethingRouter2.get('/method2', authMiddleware, somethingController0.method2);
 export default somethingRouter2;
 ```
 
-#### Controller
+#### Controller 与 Service
+
+控制器复用请求处理器，不复制 JSON 解析、校验与 try/catch：
 
 ```typescript
-import { 
-    buildContextJson, 
-    buildErrorContextJson, 
-    businessStatusCode
-} from "@/util/hono";
+import { createValidatedHandler } from '@/controller/handlers';
+import { setAdminParser, setAdminService } from '@/service/user/superAdminService';
 
-class superAdminController {
-    public static async publicMethod(c: Context) {
-        try {
-          	// params
-          	// const input = await c.req.query();
-          	// directly get value from param
-          	// const somevalue = await c.req.param('key')
-          	// body
-            const input = await c.req.json();
-          
-          	// TODO: Input Parser, implement by service
-            const parserResult = setAdminParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            const formattedInput = parserResult.data!;
-          	// TODO: Your service, implement by service
-            const result = await setAdminService(c, formattedInput);
-          
-          	// return
-            return buildContextJson(c, result);
-        } catch (e) {
-          	// Any uncatched error
-            return buildErrorContextJson(
-                c, 
-                'Set User As Admin Failed', 
-                e,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
-}
-
-// export
-export default superAdminController;
+const setUserAsAdmin = createValidatedHandler(
+    setAdminParser,
+    setAdminService,
+    'Set User As Admin Failed',
+);
 ```
 
-#### Service
+默认输入为 JSON 对象；query 接口传第四个参数 `'query'`。无输入的服务使用
+`createServiceHandler(service, failureMessage)`。路由原有鉴权中间件仍需显式挂载。
+非法 JSON、null、数组等 body 返回 400，业务校验错误沿用 parser 的状态；未捕获异常
+返回稳定的 500 JSON，不将原始异常对象发给客户端。服务自己返回的业务错误和 207 部分成功保持不变。
+
+Service 返回 `StandardServerResult<T>`；`buildStandardServerResponse` 参数顺序为
+`(success, message, data, error, httpStatus)`，状态码必须是第五个参数：
 
 ```typescript
-import { Context } from "hono";
-import { StandardServerResult } from "@/model/util/hono";
-import { buildStandardServerResponse, businessStatusCode } from "@/util/hono";
-// Structure defined by you
-import { SetSuperAdminRequestPayload } from "@/model/user/superAdmin";
-
-// Parser
-export const setAdminParser = (data: any): StandardServerResult<SetSuperAdminRequestPayload | null> => {
-    if (!data.username) {
-        return buildStandardServerResponse(
-            false,
-            'Missing username',
-            null,
-            businessStatusCode.BAD_REQUEST
-        );
-    }
-    return buildStandardServerResponse(
-        true,
-        'Parse request payload successfully',
-        {
-            username: data.username.toString()
-        },
-        businessStatusCode.OK
-    );
-}
-
-// Service
-export const setAdminService = async (c: Context, data: SetSuperAdminRequestPayload): Promise<StandardServerResult<null>> => {
-    try {
-        if (condition) {
-          	// Failed 
-            return buildStandardServerResponse(
-                false,
-                'Failed info',
-                null,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-        // Success
-        return buildStandardServerResponse(
-            true,
-            'Success data',
-            // your defined data here,
-            businessStatusCode.OK
-        );
-    } catch (error) {
-      	// Error
-        return buildStandardServerResponse(
-            false,
-            'Error message',
-            null,
-            businessStatusCode.INTERNAL_SERVER_ERROR
-        );
-    }
-}
+return buildStandardServerResponse(false, 'Missing username', null, 'Username is required', 400);
+// 成功响应允许 data 为 false、null 或对象。
+return buildStandardServerResponse(true, 'OK', data, null, 200);
 ```
 
+测试位于 `tests/controller/` 与对应 service/gateway 目录。运行 `npm run typecheck`、
+`npm test` 和 `npx wrangler deploy --dry-run`。测试包含 Node 内存 SQLite，Node 22.12
+需 `NODE_OPTIONS=--experimental-sqlite npm test`；推荐使用支持 `node:sqlite` 的 Node 24。
 
 ## EasonWeb 账号功能
 
-EasonWeb 现已接入普通用户登录/注册、邮箱验证码、密码重置、鹰角与 Post 管理员绑定、
+EasonWeb 现已接入普通用户登录/注册、邮箱验证码、密码重置、鹰角绑定、
 森空岛角色查询和手动签到。
 
 新增接口（响应保持 `{ message, data, httpStatus }`）：
@@ -292,7 +218,7 @@ EasonWeb 现已接入普通用户登录/注册、邮箱验证码、密码重置�
 | POST | `/game/hypergryph/account/check-in` | 对该账号的角色签到，部分失败返回 207 和明细 |
 
 鹰角账号接口均要求普通用户 `auth_token`。第三方 token 只存于后端，不返回给这些页面。
-Post 绑定沿用 `/post/admin/binding`，同时要求普通用户与管理员 Cookie。
+Post 绑定接口仍保留 `/post/admin/binding`，同时要求普通用户与管理员 Cookie；当前 EasonWeb 不展示该功能。
 
 ### 数据库升级与会话失效
 
@@ -311,5 +237,5 @@ npx prisma generate
 更新密码并消费挑战。相同未过期挑战不会重复发信，发送失败会清理对应记录。
 旧 `/user/email/verify` 的 `reset_password` 类型不用于新流程，请调用专用重置接口。
 
-测试覆盖本地真实 D1/KV 的注册、登录、Post 绑定和密码重置；邮件、短信和真实游戏平台调用
-使用替身验证，没有自动发送真实验证码或执行真实账号签到，也没有执行远程迁移或部署。
+自动化测试通过 mock 与 Node 内存 SQLite 验证注册、登录、Post 绑定和密码重置；
+不代表真实 Cloudflare D1/KV 或第三方平台验证。测试不会发送真实验证码或执行账号签到。

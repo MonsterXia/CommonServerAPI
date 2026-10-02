@@ -1,105 +1,40 @@
-import { Context } from 'hono';
-import { 
-    fetchSkLandCred, 
-    fetchSkLandCredValidate, 
-    fetchSkLandGameAccounts, 
-    getCredParser, 
-    getHypergryphGameAccountsParser, 
-    validateCredParser 
+import {
+    fetchSkLandCred,
+    fetchSkLandCredValidate,
+    fetchSkLandGameAccounts,
+    getCredParser,
+    getHypergryphGameAccountsParser,
+    validateCredParser
 } from '@/service/game/hypergryph/skIsland/loginService';
-import { 
-    buildContextJson, 
-    buildErrorContextJson, 
-    businessStatusCode
-} from '@/util/hono';
 import { tokenByPasswordParser } from '@/service/game/hypergryph/loginService';
 import { tempCheckIn } from '@/service/game/hypergryph/skIsland/checkIn';
+import { createValidatedHandler } from '@/controller/handlers';
 
 class skLandController {
-    public static getSkLandCred = async (c: Context) => {
-        try {
-            const input = await c.req.json();
-            
-            const parserResult = getCredParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            const formattedInput = parserResult.data!;
+    public static getSkLandCred = createValidatedHandler(
+        getCredParser,
+        (_c, data) => fetchSkLandCred(data),
+        'Fetch SKLand Cred Failed',
+    );
 
-            const res = await fetchSkLandCred(formattedInput);
-            return buildContextJson(c, res);
-        } catch (e) {
-            return buildErrorContextJson(
-                c, 
-                'Fetch SKLand Cred Failed', 
-                e, 
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
+    public static validateSkLandCred = createValidatedHandler(
+        validateCredParser,
+        (_c, data) => fetchSkLandCredValidate(data),
+        'SKLand Cred Validate Failed',
+        'query',
+    );
 
-    public static validateSkLandCred = async (c: Context) => {
-        try {
-            const input = c.req.query();
-            const parserResult = validateCredParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            const formattedInput = parserResult.data!;
+    public static getSKLandGameAccounts = createValidatedHandler(
+        getHypergryphGameAccountsParser,
+        (_c, data) => fetchSkLandGameAccounts(data),
+        'Fetch SKLand Game Accounts Failed',
+    );
 
-            const res = await fetchSkLandCredValidate(formattedInput);
-            return buildContextJson(c, res)
-        } catch (e) {
-            return buildErrorContextJson(
-                c, 
-                'SKLand Cred Validate Failed', 
-                e, 
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
-
-    public static getSKLandGameAccounts = async (c: Context) => {
-        try {
-            const input = await c.req.json();
-            const parserResult = getHypergryphGameAccountsParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            const formattedInput = parserResult.data!;
-
-            const res = await fetchSkLandGameAccounts(formattedInput);
-            return buildContextJson(c, res)
-        } catch (e) {
-            return buildErrorContextJson(
-                c, 
-                'Fetch SKLand Game Accounts Failed', 
-                e, 
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
-
-    public static checkIn = async (c: Context) => {
-        try {
-            const input = await c.req.json();
-            const parserResult = tokenByPasswordParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            const formattedInput = parserResult.data!;
-
-            const res = await tempCheckIn(formattedInput);
-            return buildContextJson(c, res)
-        } catch (e) {
-            return buildErrorContextJson(
-                c, 
-                'SKLand Check In Failed', 
-                e, 
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
+    public static checkIn = createValidatedHandler(
+        tokenByPasswordParser,
+        (_c, data) => tempCheckIn(data),
+        'SKLand Check In Failed',
+    );
 }
 
 export default skLandController;

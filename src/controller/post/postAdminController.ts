@@ -1,4 +1,3 @@
-import { Context } from 'hono';
 import {
     bindCurrentUserService,
     checkPostAdminEmailAvailabilityService,
@@ -13,94 +12,37 @@ import {
     unbindCurrentUserService,
     validatePostAdminRegistrationService,
 } from '@/service/post/postAdminService';
-import { buildContextJson, buildErrorContextJson, businessStatusCode } from '@/util/hono';
+import { createServiceHandler, createValidatedHandler } from '@/controller/handlers';
 
 class PostAdminController {
-    public static checkEmailAvailability = async (c: Context) => {
-        try {
-            const input = await c.req.json();
-            const parserResult = postAdminEmailParser(input);
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            return buildContextJson(
-                c,
-                await checkPostAdminEmailAvailabilityService(parserResult.data!.email)
-            );
-        } catch (error) {
-            return buildErrorContextJson(
-                c,
-                'Check Post administrator email failed',
-                error,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    };
+    public static checkEmailAvailability = createValidatedHandler(
+        postAdminEmailParser,
+        (_c, data) => checkPostAdminEmailAvailabilityService(data.email),
+        'Check Post administrator email failed',
+    );
 
-    public static initializeRegistration = async (c: Context) => {
-        try {
-            const parserResult = postAdminRegisterParser(await c.req.json());
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            return buildContextJson(
-                c,
-                await initializePostAdminRegistrationService(c, parserResult.data!)
-            );
-        } catch (error) {
-            return buildErrorContextJson(
-                c,
-                'Initialize Post administrator registration failed',
-                error,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    };
+    public static initializeRegistration = createValidatedHandler(
+        postAdminRegisterParser,
+        initializePostAdminRegistrationService,
+        'Initialize Post administrator registration failed',
+    );
 
-    public static validateRegistration = async (c: Context) => {
-        try {
-            const parserResult = postAdminValidationParser(await c.req.json());
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            return buildContextJson(
-                c,
-                await validatePostAdminRegistrationService(parserResult.data!)
-            );
-        } catch (error) {
-            return buildErrorContextJson(
-                c,
-                'Validate Post administrator registration failed',
-                error,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    };
+    public static validateRegistration = createValidatedHandler(
+        postAdminValidationParser,
+        (_c, data) => validatePostAdminRegistrationService(data),
+        'Validate Post administrator registration failed',
+    );
 
-    public static login = async (c: Context) => {
-        try {
-            const parserResult = postAdminLoginParser(await c.req.json());
-            if (!parserResult.success) {
-                return buildContextJson(c, parserResult);
-            }
-            return buildContextJson(c, await postAdminLoginService(c, parserResult.data!));
-        } catch (error) {
-            return buildErrorContextJson(
-                c,
-                'Post administrator login failed',
-                error,
-                businessStatusCode.INTERNAL_SERVER_ERROR
-            );
-        }
-    };
+    public static login = createValidatedHandler(
+        postAdminLoginParser,
+        postAdminLoginService,
+        'Post administrator login failed',
+    );
 
-    public static logout = async (c: Context) => buildContextJson(c, await postAdminLogoutService(c));
-
-    public static current = async (c: Context) => buildContextJson(c, await getCurrentPostAdminService(c));
-
-    public static bindCurrentUser = async (c: Context) => buildContextJson(c, await bindCurrentUserService(c));
-
-    public static unbindCurrentUser = async (c: Context) => buildContextJson(c, await unbindCurrentUserService(c));
+    public static logout = createServiceHandler(postAdminLogoutService, 'Post administrator logout failed');
+    public static current = createServiceHandler(getCurrentPostAdminService, 'Get current Post administrator failed');
+    public static bindCurrentUser = createServiceHandler(bindCurrentUserService, 'Bind current user failed');
+    public static unbindCurrentUser = createServiceHandler(unbindCurrentUserService, 'Unbind current user failed');
 }
 
 export default PostAdminController;

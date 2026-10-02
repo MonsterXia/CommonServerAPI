@@ -30,8 +30,8 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 通常沿 `router → controller → service → 存储/外部 API` 跟踪请求。模型放在 `src/model/`，共享组件放在 `src/common/`，已初始化服务通过 `src/lib/` 获取。部分路由（例如 `account.ts`）直接调用 service；小改动沿用邻近结构，不顺带重构整个模块。
 
 - 需要绑定类型的路由使用 `createNewRouter()`，并沿现有父路由挂载；不要只新增一个未接入的路由文件。
-- Controller 负责解析请求、调用 parser/service、转换响应。Service 返回 `StandardServerResult<T>`。复用已有邮箱与密码校验器，避免另建不一致的规则。
-- `buildStandardServerResponse` 的真实参数顺序为 `(success, message, data, error, httpStatus)`。状态码是**第五个参数**，README 的部分旧示例将它放在第四个参数，不应照抄。
+- Controller 通过 `src/controller/handlers.ts` 的 `createValidatedHandler(parser, service, failureMessage, source?)` 解析 JSON 对象或 query 并调用业务校验；无输入的服务使用 `createServiceHandler(service, failureMessage)`。Service 返回 `StandardServerResult<T>`。非法 JSON、null、数组及非对象 body 返回 400；parser 的业务错误与 207 等服务状态保留；未捕获异常返回稳定 500，不序列化原始错误或请求凭证。复用已有邮箱与密码校验器，避免另建不一致的规则。
+- `buildStandardServerResponse` 的真实参数顺序为 `(success, message, data, error, httpStatus)`。状态码是**第五个参数**，不要将状态码误放到 error 参数中。
 - `buildContextJson` 依据 `httpStatus >= 400` 判断错误，不依据 `success`：正常响应为 `{ message, data, httpStatus }`，错误响应为 `{ message, error, httpStatus }`。内部 `success` 不会自动出现在 HTTP 响应中。
 - HTTP 状态码常量统一从 `@/util/hono` 导入 `businessStatusCode`。
 
@@ -87,3 +87,8 @@ return buildStandardServerResponse(
 测试使用 Vitest 的 Node 环境，并非默认 Workers pool。已有测试使用模块 mock、Hono `app.request`，密码重置测试还使用 `node:sqlite` 的内存数据库模拟 D1 调用；需要支持该模块的 Node 运行时。不要把这些测试通过描述成真实 Cloudflare D1/KV 验证。
 
 接口测试关注权限、状态码、响应字段及数据变化；邮件、短信和真实游戏 API 使用替身。发布任务可使用 `npm run deploy`，它会先生成 Prisma Client 再部署；普通开发验证不等于授权部署、远程迁移或真实账号签到。
+
+## 中间过程与提交
+
+- Superpowers plan 等执行计划保存在仓库外（例如 `/tmp/eason-legacy-refactor/`），不创建在项目目录、不提交。持久维护的开发约定、测试和 API 文档可随代码提交。
+- 控制器回归在 `tests/controller/`，同时验证真实路由、无效请求的状态码与鉴权。网关使用 `AxiosRequestConfig` 传递选项，保留 Workers fetch adapter / `cache: no-store`，不添加无行为的拦截器。
