@@ -97,6 +97,7 @@ export const gameOverview = z
     .object({
         account: gameAccount,
         fetchedAt: z.number().describe('Unix timestamp in seconds when fetched.'),
+        calculatedAt: z.number().optional().describe('Upstream currentTs used for time-based resource calculations, in Unix seconds.'),
         updatedAt: nullableNumber.describe(
             'Upstream snapshot Unix timestamp in seconds; not necessarily live.',
         ),
@@ -115,8 +116,29 @@ export const gameOverview = z
                 current: nullableNumber,
                 total: nullableNumber,
                 recoveryAt: nullableNumber.optional(),
+                recovery: z.object({
+                    value: z.number().nonnegative(),
+                    at: z.number().describe('Original recovery baseline, Unix seconds.'),
+                    intervalSeconds: z.number().positive(),
+                }).optional().describe('Natural recovery baseline for client-side updates without network polling; cap at total, preserve over-cap values.'),
             }),
         ),
+        sections: z.array(z.object({
+            key: z.string(),
+            items: z.array(z.object({
+                id: z.string(),
+                name: z.string().nullable(),
+                operatorId: z.string().optional().describe('Game operator identifier; avatar resolved from frontend static resources.'),
+                nameKey: z.string().optional().describe('Stable client translation key for a known facility type.'),
+                level: nullableNumber,
+                status: z.enum(['idle', 'working', 'complete', 'locked', 'unknown']),
+                current: nullableNumber,
+                total: nullableNumber,
+                completeAt: nullableNumber.describe('Completion Unix timestamp in seconds, when provided by the source or its verified timing rule.'),
+                subtitle: z.string().nullable().optional(),
+                rating: z.string().nullable().optional(),
+            })),
+        })).optional(),
         operators: z
             .array(
                 z.object({
@@ -124,6 +146,10 @@ export const gameOverview = z
                     name: z.string(),
                     level: nullableNumber,
                     phase: nullableNumber,
+                    rarity: nullableNumber.optional().describe('Displayed star count, already converted to one-based rarity.'),
+                    potential: nullableNumber.optional().describe('Displayed potential: Arknights source rank + 1, Endfield potentialLevel unchanged (zero is valid).'),
+                    profession: z.string().nullable().optional(),
+                    element: z.string().nullable().optional(),
                 }),
             )
             .nullable(),

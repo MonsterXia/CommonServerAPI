@@ -47,5 +47,5 @@
 - 头像图片、URL、ID 映射均由 EasonWeb 的静态资源表维护，后端不新增图片请求、代理或运行时资源目录。终末地 `profile.endministratorGender` 仅携带游戏主角形象（上游 `base.gender` 的 1=male、2=female，未知为 null），不代表用户本人的性别；前端据此选择本地男女管理员图片。
 - `src/service/game/hypergryph/skIsland/overview.ts` 只选取展示字段，输出模型在 `src/model/game/hypergraph/skIsland/overview.ts`。不得透传完整上游响应、凭证或原始异常。
 - 明日方舟使用 `status`、`routine`、`campaign.reward`、`building`、`chars`；终末地使用 `data.detail` 下的 `base`、`dungeon`、`dailyMission`、`weeklyMission`、`bpSystem`、`achieve`、`chars`。`normalizeGameOverview` 的输入已经解开外层 `data`。
-- 缺失数值保持 `null`，零值保持 0；时间兼容秒/毫秒，非法时间转为 `null`。保留上游快照数值，不自行补算实时理智。明日方舟干员总数优先使用 `chars.length`（示例中 `status.charCnt` 会为 0）；终末地展示档案可能只是上游选择的干员，不能把列表长度当总收藏数。
+- 缺失数值保持 `null`，零值保持 0；时间兼容秒/毫秒，非法时间转为 `null`。按已核实官方规则计算明日方舟理智、无人机、基建，来源与边界见 [森空岛显示规则](skland-data.md)，不得使用推测公式。明日方舟干员总数使用 `chars` 扣除阿米娅额外形态（保留 `char_002_amiya`）；终末地展示档案可能只是上游选择的干员，不能把列表长度当总收藏数。
 - 可核对的社区实现与响应样例（并非官方稳定 API 承诺，核对于 2026-10-02）：[明日方舟响应样例](https://github.com/ProbiusOfficial/Skland_API/blob/main/dump.json)、[国服终末地请求实现](https://github.com/SciNancy/astrbot_plugin_sklands/blob/master/api/request.py)、[终末地字段模型](https://github.com/SciNancy/astrbot_plugin_sklands/blob/master/schemas/endfield/card.py)。国际服资料里的 `/api/v1/game/endfield/card/detail` 不应直接替换国服路径。
