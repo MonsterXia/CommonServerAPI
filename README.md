@@ -1,6 +1,35 @@
 # CommonServerAPI
 Server hold at api.246801357.xyz
 
+## Swagger / OpenAPI
+
+- [生产 Swagger UI](https://api.246801357.xyz/docs)
+- [生产 OpenAPI JSON](https://api.246801357.xyz/openapi.json)
+- 本地启动后访问同一服务的 `/docs` 或 `/openapi.json`。
+
+规范版本为 OpenAPI 3.0.3，覆盖所有 32 个已挂载接口：健康检查、普通用户、
+Post 管理员、鹰角绑定、鹰角协议和森空岛协议。原有路径及大小写（包括 `/skLand`、
+`/checkIn`）、Cookie 会话和响应封装保持兼容。未挂载的超管路由仍不对外开放。
+
+Swagger 使用同源 API；先通过对应登录接口建立 HttpOnly Cookie，再执行需要鉴权的接口。
+`UserCookie` 为 `auth_token`，`PostAdminCookie` 为 `post_auth_token`；Post 绑定/解绑必须同时具备两者。
+浏览器不能通过 Swagger Authorize 手动设置 HttpOnly Cookie。UI 不持久保存授权信息，
+关闭外部规范校验服务和 URL 配置覆盖；UI 静态资源固定使用 CDN 上的 swagger-ui-dist 5.33.1。
+发送短信/邮件、注册、签到等 Try it out 操作会真实执行。
+
+请求体声明为 `application/json`：缺失或错误字段返回统一 400 错误，存在 body 但媒体类型不支持时返回 415。
+鉴权在结构校验之前执行。响应沿用 `{ message, data, httpStatus }` 或
+`{ message, error, httpStatus }`；健康检查单独返回 `{ message }`。
+创建资源的 201、签到部分失败的 207、验证过期的 410 等均在规范中声明。
+
+```bash
+npm run openapi:export  # 导出 build/openapi.json，供导入工具或生成客户端
+npm test -- tests/openapi
+```
+
+导出文件是构建产物，不提交；路由声明才是规范来源。测试会验证 OpenAPI 规范与引用、
+实际挂载路由覆盖率、鉴权、请求校验及关键响应契约。新增路由时同步更新契约和覆盖测试。
+
 ## Run/Deployment
 
 ### Run
@@ -140,32 +169,29 @@ Pending registrations store the password hash and token hash together in one KV 
 After upgrading from the older split-record format, users with an outstanding verification
 link must restart registration; existing accounts and login sessions are unaffected.
 
-#### Router
+#### OpenAPI 路由
+
+所有业务路由使用 `createNewRouter()` 创建 `OpenAPIHono`，用 `.openapi()` 注册，
+通过 `.route()` 汇总到根路由。不要新增只有 `.get()` / `.post()` 而没有文档声明的业务接口。
 
 ```typescript
-// Default
-import { Hono } from 'hono';
-const somethingRouter1 = new Hono();
-
-// If need to get this from bindings
 import { createNewRouter } from '@/router/routerfactory';
-const somethingRouter2 = createNewRouter();
-
-// Mount other router
-import somethingRouter0 from './something0';
-somethingRouter2.route('something0', somethingRouter0);
-
-// Mount methods .get/.put/.post/.delete
-import somethingController0 from '@/controller/something0/somethingController0';
-somethingRouter2.post('/method1', somethingController0.method1);
-
-// If use middleware
+import { userRoutes } from '@/openapi/routes';
 import { authMiddleware } from '@/middleware/auth';
-somethingRouter2.get('/method2', authMiddleware, somethingController0.method2);
+import userController from '@/controller/user/userController';
 
-// export router
-export default somethingRouter2;
+const userRouter = createNewRouter();
+userRouter.openapi(
+    { ...userRoutes.current, middleware: [authMiddleware] },
+    userController.getCurrentUser,
+);
+export default userRouter;
 ```
+
+`src/openapi/schemas.ts` 定义请求及响应的 Zod schema，`src/openapi/routes.ts`
+定义路径、唯一 operationId、参数、鉴权和成功/错误状态，`src/openapi/document.ts`
+负责规范元数据与 Swagger UI。文档与输入校验共用这些声明；service 仍负责领域规则和规范化，
+响应不会被 Zod 自动裁剪，需用测试核对实际输出与 schema。
 
 #### Controller 与 Service
 

@@ -9,20 +9,25 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types",
-    "email:dev": "email dev --dir src/common/Email/template"
+    "email:dev": "email dev --dir src/common/Email/template",
+    "openapi:export": "tsx scripts/export-openapi.ts"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.0.0",
     "@react-email/ui": "^6.9.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.2.3",
     "dotenv": "^17.3.1",
     "prisma": "^7.9.0-dev.8",
     "react-email": "^6.9.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.0.4",
     "vitest": "^4.1.11",
     "wrangler": "^4.145.0"
   },
   "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "@hono/zod-openapi": "^1.6.3",
     "@prisma/adapter-d1": "^7.9.0-dev.8",
     "@prisma/client": "^7.9.0-dev.8",
     "axios": "^1.13.5",
@@ -35,7 +40,8 @@
     "resend": "^6.12.2",
     "socket.io-parser": "^4.2.6",
     "stripe": "^20.4.1",
-    "undici": "^7.30.0"
+    "undici": "^7.30.0",
+    "zod": "^4.6.5"
   },
   "overrides": {
     "@react-email/ui": {

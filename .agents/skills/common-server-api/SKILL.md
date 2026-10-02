@@ -14,6 +14,7 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 | 工作内容 | 优先阅读 |
 | --- | --- |
 | 应用初始化、CORS、CSRF、Bindings | `src/index.ts`、`src/common/config/origin.ts` |
+| OpenAPI / Swagger / 契约测试 | `src/openapi/`、`tests/openapi/`、`scripts/export-openapi.ts` |
 | 路由挂载 | `src/router/router.ts`、`src/router/routerfactory.ts` |
 | 用户注册、登录与超管 | `src/router/user/`、`src/controller/user/`、`src/service/user/` |
 | Post 管理员与账号绑定 | `src/router/post/postAdmin.ts`、`src/controller/post/postAdminController.ts`、`src/service/post/postAdminService.ts` |
@@ -29,7 +30,7 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 
 通常沿 `router → controller → service → 存储/外部 API` 跟踪请求。模型放在 `src/model/`，共享组件放在 `src/common/`，已初始化服务通过 `src/lib/` 获取。部分路由（例如 `account.ts`）直接调用 service；小改动沿用邻近结构，不顺带重构整个模块。
 
-- 需要绑定类型的路由使用 `createNewRouter()`，并沿现有父路由挂载；不要只新增一个未接入的路由文件。
+- 业务路由统一使用 `createNewRouter()` 创建 `OpenAPIHono`，通过 `.openapi(route, handler)` 注册并沿父路由挂载。请求/响应 schema 在 `src/openapi/schemas.ts`，方法、路径、唯一 operationId、状态码及 security 在 `src/openapi/routes.ts`；不要用裸 `.get()` / `.post()` 新增无文档的业务接口。
 - Controller 通过 `src/controller/handlers.ts` 的 `createValidatedHandler(parser, service, failureMessage, source?)` 解析 JSON 对象或 query 并调用业务校验；无输入的服务使用 `createServiceHandler(service, failureMessage)`。Service 返回 `StandardServerResult<T>`。非法 JSON、null、数组及非对象 body 返回 400；parser 的业务错误与 207 等服务状态保留；未捕获异常返回稳定 500，不序列化原始错误或请求凭证。复用已有邮箱与密码校验器，避免另建不一致的规则。
 - `buildStandardServerResponse` 的真实参数顺序为 `(success, message, data, error, httpStatus)`。状态码是**第五个参数**，不要将状态码误放到 error 参数中。
 - `buildContextJson` 依据 `httpStatus >= 400` 判断错误，不依据 `success`：正常响应为 `{ message, data, httpStatus }`，错误响应为 `{ message, error, httpStatus }`。内部 `success` 不会自动出现在 HTTP 响应中。
@@ -48,6 +49,14 @@ return buildStandardServerResponse(
 ```
 
 修改响应时同时验证实际 HTTP 状态和 JSON 内容，避免内部失败却向客户端返回 200。
+
+## OpenAPI 契约
+
+- `/docs` 提供 Swagger UI，`/openapi.json` 提供 OpenAPI 3.0.3；`npm run openapi:export` 导出被忽略的 `build/openapi.json`，不手工维护或提交生成规范。
+- `.openapi()` 根据同一 Zod 声明校验输入；保留 service 的邮箱规范化和业务规则。JSON 结构错误统一 400，不支持的 body 媒体类型为 415；`routerfactory.ts` 将校验异常转为现有错误封装，不能暴露原始凭证。响应不自动校验/裁剪，修改响应时在测试中核对实际 JSON 与 schema。
+- `security` 只描述鉴权，不能替代 middleware。`authMiddleware` / `postAdminAuthMiddleware` 必须在校验器之前；Post 绑定/解绑是同一个 security 对象内的两个 Cookie（AND），不要写成两个对象（OR）。Swagger 登录后依赖浏览器 Cookie，不能在 Authorize 中手动设置 HttpOnly Cookie。
+- schema 明确区分可空字段与可选字段，保留实际 201 / 207 / 410 等状态以及旧路径大小写。未挂载超管路由保持关闭，不为补文档而开放。
+- 新增或修改接口运行 `npm test -- tests/openapi`、类型检查和相关 service 测试；覆盖率测试对比实际挂载路由，增加接口时更新预期数量。Swagger UI CDN 版本固定在 `document.ts`，关闭持久授权、外部 validator 与 URL 配置覆盖。
 
 ## Workers 与数据变更
 
@@ -76,6 +85,7 @@ return buildStandardServerResponse(
 | 类型检查 | `npm run typecheck` |
 | 相关测试 | `npm test -- tests/service/post/postAdminService.test.ts`（换为相关路径） |
 | 全量测试 | `npm test` |
+| 导出 OpenAPI 规范 | `npm run openapi:export` |
 | Workers 打包验证 | `npx wrangler deploy --dry-run` |
 | 本地迁移验证 | `npx wrangler d1 migrations apply common-server-db --local` |
 | 邮件模板预览 | `npm run email:dev` |

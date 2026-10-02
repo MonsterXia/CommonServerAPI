@@ -1,5 +1,5 @@
-import { Hono } from 'hono';
+import { createNewRouter } from '@/router/routerfactory';
 
-const endfieldRouter = new Hono();
+const endfieldRouter = createNewRouter();
 
 export default endfieldRouter;

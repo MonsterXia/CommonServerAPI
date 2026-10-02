@@ -1,20 +1,21 @@
-import { Hono } from 'hono';
+import { hypergryphRoutes } from '@/openapi/routes';
+import { createNewRouter } from '@/router/routerfactory';
 import endfieldRouter from './endfield/endfield';
 import skLandRouter from './skLand/skLand';
 import hypergryphController from '@/controller/game/hypergryph/hypergryphController';
 
 import accountRouter from './account';
 
-const hypergryphRouter = new Hono();
+const hypergryphRouter = createNewRouter();
 
 hypergryphRouter.route('/account', accountRouter);
 hypergryphRouter.route('/endfield', endfieldRouter);
 hypergryphRouter.route('/skLand', skLandRouter);
 
-hypergryphRouter.post('/sms', hypergryphController.getPhoneCode);
-hypergryphRouter.post('/token/sms', hypergryphController.getTokenByPhoneCode);
-hypergryphRouter.post('/token/password', hypergryphController.getTokenByPassword);
-hypergryphRouter.get('/token/validate', hypergryphController.tokenValidate);
-hypergryphRouter.post('/token/oauth', hypergryphController.grantOAuthToken);
+hypergryphRouter.openapi(hypergryphRoutes.sms, hypergryphController.getPhoneCode);
+hypergryphRouter.openapi(hypergryphRoutes.smsToken, hypergryphController.getTokenByPhoneCode);
+hypergryphRouter.openapi(hypergryphRoutes.passwordToken, hypergryphController.getTokenByPassword);
+hypergryphRouter.openapi(hypergryphRoutes.validate, hypergryphController.tokenValidate);
+hypergryphRouter.openapi(hypergryphRoutes.oauth, hypergryphController.grantOAuthToken);
 
 export default hypergryphRouter;

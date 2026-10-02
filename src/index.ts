@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { createNewRouter } from "@/router/routerfactory";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
@@ -78,7 +78,7 @@ export class CommonServerAPI extends WorkflowEntrypoint<Bindings> {
 	}
 }
 
-const app = new Hono<{ Bindings: Bindings }>();
+const app = createNewRouter();
 
 app.use('*', async (c, next) => {
 	if (!globalThis.servicesInitialized) {
@@ -111,10 +111,5 @@ app.use('*',
 )
 
 app.route('/', router);
-
-// Health check endpoint
-app.get("/", async (c) => {
-	return c.json({ message: "Common Server API is running." }, 200);
-});
 
 export default app;

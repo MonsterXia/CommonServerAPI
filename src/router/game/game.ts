@@ -1,7 +1,7 @@
-import { Hono } from 'hono';
+import { createNewRouter } from '@/router/routerfactory';
 import hypergryphRouter from './hypergryph/hypergraph';
 
-const gameRouter = new Hono();
+const gameRouter = createNewRouter();
 
 gameRouter.route('/hypergryph', hypergryphRouter);
 
