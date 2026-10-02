@@ -17,7 +17,7 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 | 路由挂载 | `src/router/router.ts`、`src/router/routerfactory.ts` |
 | 用户注册、登录与超管 | `src/router/user/`、`src/controller/user/`、`src/service/user/` |
 | Post 管理员与账号绑定 | `src/router/post/postAdmin.ts`、`src/controller/post/postAdminController.ts`、`src/service/post/postAdminService.ts` |
-| 鹰角绑定、角色查询与签到 | `src/router/game/hypergryph/account.ts`、`src/service/game/hypergryph/accountService.ts` |
+| 鹰角绑定、角色查询、概览与签到 | `src/router/game/hypergryph/account.ts`、`src/service/game/hypergryph/accountService.ts` |
 | 第三方协议与签名 | `src/common/API/`、`src/common/config/endpoints.ts`、`src/util/skLand.ts` |
 | 数据模型、迁移 | `prisma/schema.prisma`、根目录 `migrations/`、`src/lib/prisma.ts` |
 | 邮件、验证、对象存储 | `src/common/service/verificationService.ts`、`src/common/Email/`、`src/common/OBS/` |

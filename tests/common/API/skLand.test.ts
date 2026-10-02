@@ -1,13 +1,13 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { fetchSkLandCheckInAPI } from '@/common/API/skLand';
+import { fetchSkLandCheckInAPI, fetchSkLandProfileAPI } from '@/common/API/skLand';
 import { fetchSkLandGameAccounts } from '@/service/game/hypergryph/skIsland/loginService';
 import { skLandCheckInCore } from '@/service/game/hypergryph/skIsland/checkIn';
-const { post, get } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }));
+const { post, get, sign } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn(), sign: vi.fn() }));
 vi.mock('@/lib/gatewayManager', () => ({ getGatewayManager: () => ({ post, get, buildSKLandURL: (path: string) => `https://example.com/${path}` }) }));
-vi.mock('@/util/skLand', () => ({ getSkLandSignHeader: async () => ({ timeStamp: '100' }) }));
+vi.mock('@/util/skLand', () => ({ getSkLandSignHeader: sign }));
 const cred = { cred: 'test', token: 'secret' };
 const account = { appCode: 'arknights', nickName: 'Doctor', uid: '1', gameId: '1' };
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => { vi.resetAllMocks(); sign.mockResolvedValue({ timeStamp: '100' }); });
 it('reports upstream business errors as failures, not successful sign-ins', async () => {
     post.mockResolvedValue({ code: 1, message: 'Already checked in', data: {} });
     const response = await skLandCheckInCore(cred, [account]);
@@ -52,4 +52,26 @@ it('preserves upstream server labels without changing the IDs used for check-in'
     post.mockResolvedValue({ code: 0, data: { awards: [] } });
     await fetchSkLandCheckInAPI(cred, response.data![0]);
     expect(post.mock.calls[0][1]).toEqual({ uid: 'a', gameId: '1' });
+});
+
+it('signs the same GET query that is sent for each game profile', async () => {
+    get.mockResolvedValue({ code: 0, data: { status: {} } });
+    const credentials = { ...cred, userId: 'skland-user' };
+    await fetchSkLandProfileAPI(credentials, account);
+    expect(get.mock.calls[0][0]).toBe('https://example.com/api/v1/game/player/info?uid=1');
+    expect(sign.mock.calls[0][2].toString()).toBe('uid=1');
+    await fetchSkLandProfileAPI(credentials, { ...account, appCode: 'endfield', uid: 'role', gameId: '99' });
+    expect(get.mock.calls[1][0]).toBe('https://example.com/web/v1/game/endfield/card/detail?roleId=role&serverId=99&userId=skland-user');
+    expect(sign.mock.calls[1][2].toString()).toBe('roleId=role&serverId=99&userId=skland-user');
+    expect(get.mock.calls[1][2]).toMatchObject({ headers: { 'sk-game-role': '3_role_99' }, timeout: 20000 });
+    expect(post).not.toHaveBeenCalled();
+});
+it('rejects profile business errors and bounds timestamp retries', async () => {
+    get.mockResolvedValueOnce({ code: 1, data: {} });
+    await expect(fetchSkLandProfileAPI({ ...cred, userId: '1' }, account)).rejects.toThrow('unavailable');
+    get.mockClear();
+    get.mockRejectedValue({ isAxiosError: true, response: { status: 401, data: { code: 10003, timestamp: '90' } } });
+    await expect(fetchSkLandProfileAPI({ ...cred, userId: '1' }, account)).rejects.toBeDefined();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(sign.mock.calls.at(-1)?.[3]).toBe(10);
 });

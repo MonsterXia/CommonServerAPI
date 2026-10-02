@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '@/middleware/auth';
-import { bindHypergryphAccount, unbindHypergryphAccount, getBoundGames } from '@/service/game/hypergryph/accountService';
+import { bindHypergryphAccount, unbindHypergryphAccount, getBoundGames, getBoundGameOverview } from '@/service/game/hypergryph/accountService';
 import { fetchHypergryphPhoneCode } from '@/service/game/hypergryph/loginService';
 import { buildContextJson, buildErrorContextJson } from '@/util/hono';
 
@@ -17,5 +17,9 @@ account.post('/sms', async c => {
 account.post('/', async c => buildContextJson(c, await bindHypergryphAccount(c, await c.req.json().catch(() => null))));
 account.delete('/', async c => buildContextJson(c, await unbindHypergryphAccount(c)));
 account.get('/games', async c => buildContextJson(c, await getBoundGames(c)));
+account.get('/overview', async c => {
+    c.header('Cache-Control', 'private, no-store');
+    return buildContextJson(c, await getBoundGameOverview(c, c.req.query()));
+});
 account.post('/check-in', async c => buildContextJson(c, await getBoundGames(c, true)));
 export default account;

@@ -10,6 +10,8 @@ export const sklandEndpoints = {
     getCred: 'api/v1/user/auth/generate_cred_by_code',
     credValidation: 'api/v1/user/check',
     getGameAccounts: 'api/v1/game/player/binding',
+    arknightsProfile: 'api/v1/game/player/info',
+    endfieldProfile: 'web/v1/game/endfield/card/detail',
     arknightsCheckIn: 'api/v1/game/attendance',
     endfieldCheckIn: 'web/v1/game/endfield/attendance'
 }

@@ -4,8 +4,35 @@ import { getSkLandSignHeader } from '@/util/skLand';
 import { sklandEndpoints } from '../config/endpoints';
 import { contentJsonHeader } from '../constant/requestHeader';
 import axios from 'axios';
+import type { Cred } from '@/model/game/hypergraph/skIsland/user';
 
 const gatewayManagerInstance = getGatewayManager();
+
+export async function fetchSkLandProfileAPI(cred: Cred, account: SKLandCheckInRequestPayload): Promise<unknown> {
+    const endfield = account.appCode === 'endfield';
+    if (!endfield && account.appCode !== 'arknights') throw new Error('Unsupported game');
+    const query = new URLSearchParams(endfield
+        ? { roleId: account.uid, serverId: account.gameId, userId: cred.userId }
+        : { uid: account.uid });
+    const url = gatewayManagerInstance.buildSKLandURL(endfield ? sklandEndpoints.endfieldProfile : sklandEndpoints.arknightsProfile);
+    let delay: number | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const headers = await getSkLandSignHeader(cred, url, query, delay);
+        if (endfield) headers['sk-game-role'] = `3_${account.uid}_${account.gameId}`;
+        try {
+            const response = await gatewayManagerInstance.get<{ code: number; data?: unknown }>(`${url}?${query}`, {}, { headers, timeout: 20000 });
+            if (response.code !== 0 || !response.data) throw new Error('Game profile unavailable');
+            return response.data;
+        } catch (error) {
+            if (attempt === 0 && axios.isAxiosError(error) && error.response?.status === 401 && error.response.data?.code === 10003) {
+                const timestamp = Number(error.response.data.timestamp);
+                if (Number.isFinite(timestamp)) { delay = Number(headers.timeStamp) - timestamp; continue; }
+            }
+            throw error;
+        }
+    }
+    throw new Error('Game profile unavailable');
+}
 
 export const skLandGetCredAPI = async (data: SkLandGetCredRequestPayload): Promise<SkLandCredResponse> => {
     const url = gatewayManagerInstance.buildSKLandURL(sklandEndpoints.getCred);

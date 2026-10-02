@@ -4,6 +4,8 @@ import { buildStandardServerResponse as result } from '@/util/hono';
 import { fetchHypergryphTokenByPassword, fetchHypergryphTokenByPhoneCode, fetchHypergryphOauthToken } from './loginService';
 import { fetchSkLandCred, fetchSkLandGameAccounts } from './skIsland/loginService';
 import { skLandCheckInCore } from './skIsland/checkIn';
+import { fetchSkLandProfileAPI } from '@/common/API/skLand';
+import { normalizeGameOverview } from './skIsland/overview';
 
 const publicAccount = { phone: true, userId: true, createdAt: true, updatedAt: true } as const;
 async function owner(c: Context) {
@@ -44,7 +46,7 @@ export async function unbindHypergryphAccount(c: Context) {
     await getPrismaClient().hypergryphAccount.deleteMany({ where: { userId: user.id } });
     return result(true, 'Account unbound', null, null, 200);
 }
-export async function getBoundGames(c: Context, checkIn = false) {
+async function getBoundGameContext(c: Context) {
     const user = await owner(c);
     if (!user) return result(false, 'User not found', null, null, 404);
     const account = await getPrismaClient().hypergryphAccount.findUnique({ where: { userId: user.id } });
@@ -55,6 +57,26 @@ export async function getBoundGames(c: Context, checkIn = false) {
     if (!cred.success || !cred.data) return result(false, 'SKLand authentication failed', null, null, 502);
     const games = await fetchSkLandGameAccounts(cred.data);
     if (!games.success || !games.data) return result(false, 'Could not load game accounts', null, null, 502);
-    if (!checkIn) return games;
-    return skLandCheckInCore(cred.data, games.data);
+    return result(true, 'Game context loaded', { cred: cred.data, games: games.data }, null, 200);
+}
+export async function getBoundGames(c: Context, checkIn = false) {
+    const context = await getBoundGameContext(c);
+    if (!context.success || !context.data) return result(false, context.message, null, context.error, context.httpStatus);
+    if (!checkIn) return result(true, 'Get game accounts successfully', context.data.games, null, 200);
+    return skLandCheckInCore(context.data.cred, context.data.games);
+}
+export async function getBoundGameOverview(c: Context, query: Record<string, string>) {
+    const { appCode, uid, gameId } = query;
+    if (!['arknights', 'endfield'].includes(appCode) || !/^[\w-]{1,128}$/.test(uid ?? '') || !/^[\w-]{1,128}$/.test(gameId ?? ''))
+        return result(false, 'Invalid game account', null, null, 400);
+    const context = await getBoundGameContext(c);
+    if (!context.success || !context.data) return result(false, context.message, null, context.error, context.httpStatus);
+    const account = context.data.games.find(game => game.appCode === appCode && String(game.uid) === uid && String(game.gameId) === gameId);
+    if (!account) return result(false, 'Game account is not linked to this user', null, null, 403);
+    try {
+        const raw = await fetchSkLandProfileAPI(context.data.cred, account);
+        return result(true, 'Game overview loaded', normalizeGameOverview(account, raw), null, 200);
+    } catch {
+        return result(false, 'Could not load game overview; refresh or update account login', null, null, 502);
+    }
 }

@@ -39,3 +39,12 @@
 ## 依赖维护
 
 `package.json` 对 `@react-email/ui` 的 Next.js、Prisma 的 MySQL2 和 `@prisma/config` 的 DeepmergeTS 设置了 scoped overrides。维护依赖时阅读 README 对这些 overrides 的说明，验证 Prisma 配置加载与邮件预览，不要仅为简化依赖树而移除。
+
+## 森空岛角色资料
+
+- `GET /game/hypergryph/account/overview?appCode=...&uid=...&gameId=...` 使用普通用户认证、`private, no-store`。服务端从当前绑定换取凭证，重新查询角色列表并同时匹配游戏、UID、区服；禁止仅凭客户端 UID 查询他人角色。
+- `src/common/API/skLand.ts` 请求固定森空岛域名：明日方舟 `/api/v1/game/player/info?uid=...`；国服终末地 `/web/v1/game/endfield/card/detail?roleId=...&serverId=...&userId=...`。终末地的 `userId` 来自森空岛凭证，不是游戏 UID。查询串签名与发送必须完全一致，时间校正最多重试一次。
+- `src/service/game/hypergryph/skIsland/overview.ts` 只选取展示字段，输出模型在 `src/model/game/hypergraph/skIsland/overview.ts`。不得透传完整上游响应、凭证或原始异常。
+- 明日方舟使用 `status`、`routine`、`campaign.reward`、`building`、`chars`；终末地使用 `data.detail` 下的 `base`、`dungeon`、`dailyMission`、`weeklyMission`、`bpSystem`、`achieve`、`chars`。`normalizeGameOverview` 的输入已经解开外层 `data`。
+- 缺失数值保持 `null`，零值保持 0；时间兼容秒/毫秒，非法时间转为 `null`。保留上游快照数值，不自行补算实时理智。明日方舟干员总数优先使用 `chars.length`（示例中 `status.charCnt` 会为 0）；终末地展示档案可能只是上游选择的干员，不能把列表长度当总收藏数。
+- 可核对的社区实现与响应样例（并非官方稳定 API 承诺，核对于 2026-10-02）：[明日方舟响应样例](https://github.com/ProbiusOfficial/Skland_API/blob/main/dump.json)、[国服终末地请求实现](https://github.com/SciNancy/astrbot_plugin_sklands/blob/master/api/request.py)、[终末地字段模型](https://github.com/SciNancy/astrbot_plugin_sklands/blob/master/schemas/endfield/card.py)。国际服资料里的 `/api/v1/game/endfield/card/detail` 不应直接替换国服路径。
