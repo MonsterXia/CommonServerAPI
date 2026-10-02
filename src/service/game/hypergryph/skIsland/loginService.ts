@@ -6,7 +6,7 @@ import {
 import {
     Cred,
     SKLandAccountsRequestParams,
-    SKLandCheckInRequestPayload,
+    SKLandGameAccount,
     SkLandCredValidateRequestParams,
     SkLandCredValidateResponse,
     SkLandGetCredRequestPayload
@@ -144,23 +144,30 @@ export const fetchSkLandCredValidate = async (
 
 export const fetchSkLandGameAccounts = async (
     params: SKLandAccountsRequestParams
-): Promise<StandardServerResult<SKLandCheckInRequestPayload[] | null>> => {
+): Promise<StandardServerResult<SKLandGameAccount[] | null>> => {
     try {
         const res = await skLandGameAccountsAPI(params);
         if (res.code === 0) {
             const gameAccounts = res.data.list;
-            let simpleAccounts: SKLandCheckInRequestPayload[] = gameAccounts.flatMap(account => {
+            const simpleAccounts: SKLandGameAccount[] = gameAccounts.flatMap(account => {
                 if (account.appCode === 'arknights') {
                     return account.bindingList.filter(binding => !binding.isDelete).map(binding => ({
                         appCode: account.appCode,
                         nickName: binding.nickName,
                         uid: binding.uid,
                         gameId: binding.channelMasterId,
+                        serverName: binding.channelName,
                     }));
                 } else if (account.appCode === 'endfield') {
                     return account.bindingList.filter(binding => !binding.isDelete).flatMap(binding => {
                         const roles = binding.roles?.length ? binding.roles : binding.defaultRole ? [binding.defaultRole] : [];
-                        return roles.map(role => ({ appCode: account.appCode, nickName: role.nickname, uid: role.roleId, gameId: role.serverId }));
+                        return roles.map(role => ({
+                            appCode: account.appCode,
+                            nickName: role.nickname,
+                            uid: role.roleId,
+                            gameId: role.serverId,
+                            serverName: role.serverName,
+                        }));
                     });
                 }
                 return [];
@@ -192,6 +199,5 @@ export const fetchSkLandGameAccounts = async (
         )
     }
 }
-
 
 

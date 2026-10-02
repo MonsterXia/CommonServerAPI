@@ -82,6 +82,11 @@ export interface SKLandCheckInRequestPayload {
     gameId: string;
 }
 
+export interface SKLandGameAccount extends SKLandCheckInRequestPayload {
+    /** Display only: channelName for Arknights, role.serverName for Endfield. */
+    serverName?: string;
+}
+
 export interface SKLandCheckInAPIRequestParams {
     uid: string;
     gameId: string;

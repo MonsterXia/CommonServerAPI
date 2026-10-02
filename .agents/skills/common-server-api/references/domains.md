@@ -25,6 +25,7 @@
 - `HypergryphAccount` 用 `phone` 作主键，`userId` 唯一，第三方 token 存在后端。返回给账号页面的对象使用公开字段选择，避免把完整数据库记录或上游响应直接返回。
 - `src/service/game/hypergryph/accountService.ts` 负责绑定、解绑、角色查询与手动签到；相关 API 封装在 `src/common/API/hypergryph.ts`、`src/common/API/skLand.ts`。
 - 签到可能部分失败，当前接口使用 207 和逐项结果。修改重试或汇总逻辑时验证成功、全部失败及部分失败的表现。
+- 角色列表的 `serverName` 是展示字段：明日方舟取绑定的 `channelName`，终末地取每个角色的 `serverName`（含 defaultRole 回退）。`gameId` 仍分别取 `channelMasterId` / `serverId`，不要混用命名空间或用显示名称替换签到 ID。来源参考 [森空岛绑定响应样例](https://github.com/ProbiusOfficial/Skland_API#森空岛app)、[含终末地角色字段的客户端模型](https://pkg.go.dev/github.com/starudream/sign-task/pkg/skland/api#PlayerRole)。
 - 目录中并存 `hypergryph`、`hypergraph`、`skLand`、`skIsland` 等命名；按现有 import 和挂载追踪，不要假定这些路径可互换。
 
 ## 服务初始化与存储
