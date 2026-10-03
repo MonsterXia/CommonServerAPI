@@ -26,6 +26,8 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 
 认证、存储或第三方服务变更时，按需阅读 [领域约定与实现注意点](references/domains.md)。
 
+涉及森空岛取数、概览字段、恢复公式或官方数据差异时，使用 [森空岛后端数据 skill](../skland-backend/SKILL.md)。
+
 ## 接口开发约定
 
 通常沿 `router → controller → service → 存储/外部 API` 跟踪请求。模型放在 `src/model/`，共享组件放在 `src/common/`，已初始化服务通过 `src/lib/` 获取。部分路由（例如 `account.ts`）直接调用 service；小改动沿用邻近结构，不顺带重构整个模块。
