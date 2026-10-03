@@ -1,6 +1,18 @@
 import { expect, it } from 'vitest';
 import { normalizeGameOverview } from '@/service/game/hypergryph/skIsland/overview';
 const account = { appCode: 'arknights', uid: '1', gameId: '1', nickName: 'Fixture' };
+it('preserves the official Arknights completed-story sentinel without inferring completion from missing data', async () => {
+    const { gameOverview } = await import('@/openapi/schemas');
+    for (const [raw, expected] of [['', ''], [null, null], [undefined, null], ['   ', null], [0, null], ['unknown-stage', 'unknown-stage']] as const) {
+        const result = normalizeGameOverview(account, { status: { level: 120, mainStageProgress: raw } });
+        expect(result.profile.mainProgress).toBe(expected);
+        expect(gameOverview.parse(result).profile.mainProgress).toBe(expected);
+    }
+    const endfield = normalizeGameOverview({ ...account, appCode: 'endfield' }, { detail: {
+        base: { level: 60, mainMission: { description: '' } },
+    } });
+    expect(endfield.profile.mainProgress).toBeNull();
+});
 it('normalizes Arknights snapshots, over-cap resources, base totals and operator names', () => {
     const result = normalizeGameOverview(account, {
         status: { level: 120, ap: { current: 150, max: 135, completeRecoveryTime: -1 }, storeTs: 1700000000, charCnt: 0, mainStageProgress: 'stage1' },

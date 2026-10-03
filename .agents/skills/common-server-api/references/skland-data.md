@@ -33,6 +33,7 @@
 - 会客室：board数组数量/7；自有、收到、待领取线索分别显示。dailyReward布尔含义未核实，不展示。
 - 收藏总数扣除额外阿米娅形态，只保留char_002_amiya；档案列表仍可展示全部形态。稀有度及潜能rank均+1；medal.total为蚀刻章数量。
 - 活动按SIDESTORY/BRANCHLINE且非复刻筛选，汇总zones的通关/总数；集成战略收藏品与投资分开；剿灭maxKills、保全best保留来源数值，不臆造上限。生息演算目前仅支持明确返回的ID/名称，不将未知嵌套对象塞进页面。缺失主线进度不推断“全部完成”。
+- 主线进度：官方 [账号组件](https://bbs.hycdn.cn/skland-fe-static/skland-game/8624.b27ec983.js) 将 `status.mainStageProgress === ""` 精确映射为“全部完成”。后端保留这个空字符串哨兵，前端仅对方舟本地化为“全部完成 / All completed”；null、缺失、空白或非法值仍表示未提供。非空值按 stageInfoMap 的 code/name/原 ID 显示；不得通过等级推断通关，也不得将此规则套用终末地任务。OpenAPI 与两端类型须保留此语义。
 
 ## 终末地
 

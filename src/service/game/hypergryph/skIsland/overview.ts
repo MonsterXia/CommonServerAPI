@@ -181,7 +181,9 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
             worldLevel: endfield ? num(base.worldLevel) : null,
             registeredAt: timestamp(endfield ? base.createTime : base.registerTs),
             lastOnlineAt: timestamp(endfield ? base.lastLoginTime : base.lastOnlineTs),
-            mainProgress: endfield ? text(obj(base.mainMission).description) : (text(stage.code) ?? text(stage.name) ?? stageId),
+            // Skland explicitly renders an exact empty Arknights progress string as all completed.
+            mainProgress: endfield ? text(obj(base.mainMission).description)
+                : base.mainStageProgress === '' ? '' : (text(stage.code) ?? text(stage.name) ?? stageId),
         },
         metrics: [...metrics, ...extra.metrics],
         sections: extra.sections,

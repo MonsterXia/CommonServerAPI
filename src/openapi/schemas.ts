@@ -106,7 +106,7 @@ export const gameOverview = z
             worldLevel: nullableNumber,
             registeredAt: nullableNumber,
             lastOnlineAt: nullableNumber,
-            mainProgress: z.string().nullable(),
+            mainProgress: z.string().nullable().describe('Main story stage or mission. For Arknights only, an exact empty string means all completed; null means unavailable.'),
             endministratorGender: z.enum(['male', 'female']).nullable().optional(),
         }),
         metrics: z.array(
