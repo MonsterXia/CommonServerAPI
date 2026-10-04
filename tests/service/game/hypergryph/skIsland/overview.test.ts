@@ -151,3 +151,23 @@ it('resets SSS rewards on the first and sixteenth at CN 04:00, preserving missin
         expect(after.metrics.find(m => m.key === 'towerHigher')?.current).toBeNull();
     }
 });
+
+it('selects Endfield operator avatars from charData with no ID, appearance or extra request dependency', async () => {
+    const { gameOverview } = await import('@/openapi/schemas');
+    const square = 'https://bbs.hycdn.cn/public/skland-game/image/square.png';
+    const portrait = 'https://web.hycdn.cn/portrait.png';
+    for (const [avatarSqUrl, avatarRtUrl, expected] of [
+        [square, portrait, square], [undefined, portrait, portrait], ['', portrait, portrait],
+        ['https://invalid.example/a.png', portrait, portrait], [undefined, undefined, undefined],
+        [12, null, undefined], ['http://bbs.hycdn.cn/a.png', 'javascript:bad', undefined],
+    ]) {
+        const result = normalizeGameOverview({ ...account, appCode: 'endfield' }, { detail: {
+            base: { level: 1 }, chars: [{ id: 'future-character', level: 0, charData: { name: 'Test', avatarSqUrl, avatarRtUrl } }],
+        } });
+        expect(result.operators?.[0]).toMatchObject({ id: 'future-character', level: 0 });
+        expect(result.operators?.[0]?.avatarUrl).toBe(expected);
+        expect(gameOverview.parse(result).operators?.[0]?.avatarUrl).toBe(expected);
+    }
+    const ak = normalizeGameOverview(account, { status: { level: 1 }, chars: [{ charId: 'char_002_amiya', avatarUrl: square }] });
+    expect(ak.operators?.[0]).not.toHaveProperty('avatarUrl');
+});

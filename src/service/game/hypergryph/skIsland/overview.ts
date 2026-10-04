@@ -1,5 +1,6 @@
 import type { GameOverview, OverviewMetric } from '@/model/game/hypergraph/skIsland/overview';
 import type { SKLandGameAccount } from '@/model/game/hypergraph/skIsland/user';
+import { artworkUrl } from './artwork';
 import { normalizeArknightsDetails } from './arknightsDetails';
 import { normalizeEndfieldDetails } from './endfieldOverview';
 
@@ -166,7 +167,10 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
         return { id, name, level: num(char.level), phase: num(char.evolvePhase),
             rarity: rarity !== null ? rarity + (endfield ? 0 : 1) : null,
             potential: num(endfield ? char.potentialLevel : char.potentialRank) === null ? null : Number(endfield ? char.potentialLevel : char.potentialRank) + (endfield ? 0 : 1),
-            ...(endfield ? { profession: text(obj(metadata.profession).value), element: text(obj(metadata.property).value) } : {}),
+            ...(endfield ? {
+                profession: text(obj(metadata.profession).value), element: text(obj(metadata.property).value),
+                avatarUrl: artworkUrl(charData.avatarSqUrl) ?? artworkUrl(charData.avatarRtUrl),
+            } : {}),
         };
     }).filter((v): v is NonNullable<typeof v> => v !== null).sort((a, b) => (b.level ?? -1) - (a.level ?? -1)) ?? null;
     return {

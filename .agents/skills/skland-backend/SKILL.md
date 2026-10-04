@@ -23,7 +23,7 @@ description: 维护 CommonServerAPI 的森空岛明日方舟与终末地角色�
 
 updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优先上游 currentTs（终末地 detail.currentTs 优先），都用 Unix 秒。恢复公式、负哨兵、超上限、北京时间04:00重置、基建估算与终末地探索规则均按显示规则文档，两个游戏不得共用未经证实的恢复公式。返回 recovery 基线允许前端本地计时，不要求每秒访问后端。
 
-业务数据契约在 `src/model/game/hypergraph/skIsland/overview.ts` 与 `src/openapi/schemas.ts` 同步维护。新增字段同时协调前端 GameOverview、国际化和渲染。schema 中写明可空、单位与哨兵；不要把上游凭证、完整私有响应、头像 URL 或图片目录塞进概览。
+业务数据契约在 `src/model/game/hypergraph/skIsland/overview.ts` 与 `src/openapi/schemas.ts` 同步维护。新增字段同时协调前端 GameOverview、国际化和渲染。schema 中写明可空、单位与哨兵；不要把上游凭证、完整私有响应或图片目录塞进概览。
 
 ## 资料与图片边界
 
@@ -42,4 +42,8 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 
 2026-10-04 核对官方 `9560.b49ee94b.js` 的 getAkActInfo：活动、集成战略、保全、剿灭由对应 infoMap.picUrl 提供封面。Endfield `dist-BZImVwlH.js` 定义 warEchoes.seasons 的 kvImage/headerImage、indieHard.indieHardGroups 的 pic；赛季/周使用对应赛季图片，秘境使用当前组图片。来源完整链接见前端 skland-frontend/references/assets.md。
 
-概览条目新增可选 artworkUrl；只选择这些已核实字段，复用已取得的原始数据，不补取目录或代理图片，不添加干员头像 URL。artwork.ts 校验官方 HTTPS CDN、禁止 URL 凭证与非默认端口；非法/缺失值省略，不影响游戏数字。前端本地条目资源与分组图依次兜底。未核实的生息演算封面或独立关卡图不猜测；不得从真实账号响应生成公共资源清单。
+概览条目新增可选 artworkUrl；只选择这些已核实字段，复用已取得的原始数据，不补取目录或代理图片，终末地干员头像按下节保留。artwork.ts 校验官方 HTTPS CDN、禁止 URL 凭证与非默认端口；非法/缺失值省略，不影响游戏数字。前端本地条目资源与分组图依次兜底。未核实的生息演算封面或独立关卡图不猜测；不得从真实账号响应生成公共资源清单。
+
+## 终末地干员头像
+
+按用户要求（2026-10-04），概览 operators[].avatarUrl 保留 charData.avatarSqUrl，缺失或非法时尝试 avatarRtUrl；复用 artwork.ts 的官方 HTTPS CDN 校验。来源为官方 dist-BZImVwlH.js 中 GameDataInfoCodec → As.decode → Ft.decode。不增加逐干员请求、头像接口或图片代理；URL 来自已获取的账号资料，不生成本地 ID/MD5/管理员形象图片 map。前端缺图或加载失败使用姓名首字文字；方舟仍由前端按官方 charId/CDN 规则生成地址。profile.endministratorGender 保留兼容，不再用于选头像。
