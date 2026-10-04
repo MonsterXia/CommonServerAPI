@@ -1,18 +1,8 @@
 import { artworkUrl } from './artwork';
 
-export type ArknightsDetailItem = {
-    id: string;
-    name: string | null;
-    nameKey?: string;
-    operatorId?: string;
-    artworkUrl?: string;
-    level: number | null;
-    status: 'idle' | 'working' | 'complete' | 'locked' | 'unknown';
-    current: number | null;
-    total: number | null;
-    completeAt: number | null;
-    subtitle?: string | null;
-};
+import type { OverviewSection } from '../../../../model/game/hypergraph/skIsland/overview';
+
+export type ArknightsDetailItem = OverviewSection['items'][number];
 export type ArknightsDetailSection = { key: string; items: ArknightsDetailItem[] };
 
 type Obj = Record<string, unknown>;
@@ -208,12 +198,40 @@ export function normalizeArknightsDetails(detail: unknown, currentTs: number): A
     records('arknightsRogueBank', obj(data.rogue).records, 'rogueId', data.rogueInfoMap, row => num(obj(row.bank).current));
     records('arknightsTower', obj(data.tower).records, 'towerId', data.towerInfoMap, row => num(row.best), info => text(info.subName));
     records('arknightsCampaign', obj(data.campaign).records, 'campaignId', data.campaignInfoMap, row => num(row.maxKills), info => text(obj(obj(data.campaignZoneInfoMap)[String(info.campaignZoneId)]).name));
-    // The SDK forwards sandbox records without a fixed numeric display schema.
-    // Keep identifiers and explicit names only until individual measures are verified.
+    const bossRush = list(data.bossRush);
+    if (bossRush) {
+        const items: ArknightsDetailItem[] = [];
+        for (const value of bossRush) {
+            const row = obj(value), id = text(row.id);
+            if (!id) continue;
+            const record = obj(row.record), played = typeof record.played === 'boolean' ? record.played : null;
+            const difficulty = ['NORMAL', 'TEAM', 'EX', 'SP'].includes(String(record.difficulty))
+                ? record.difficulty as 'NORMAL' | 'TEAM' | 'EX' | 'SP' : null;
+            const edition = /^act(\d+)bossrush$/.exec(id)?.[1]?.padStart(2, '0') ?? null;
+            items.unshift({ ...item({}), id, name: null, artworkUrl: artworkUrl(row.picUrl), bossRush: {
+                edition, played, difficulty: played === true ? difficulty : null,
+                stageCode: played === true ? text(obj(obj(data.stageInfoMap)[String(record.stageId)]).code) : null,
+            } });
+        }
+        sections.push({ key: 'arknightsBossRush', items });
+    }
+    // Official renderer selects the first record after reversing the source list.
+    // Only verified display fields are exposed; never pass through arbitrary objects.
     const sandbox = list(data.sandbox);
     if (sandbox) {
-        const items = sandbox.map(value => obj(value)).filter(row => text(row.id)).map(row => ({ ...item({}), id: text(row.id)!, name: text(row.name) })).reverse();
-        sections.push({ key: 'arknightsSandbox', items });
+        const row = obj(sandbox.at(-1));
+        const quests = list(row.subQuest), rift = list(row.fixRift);
+        sections.push({ key: 'arknightsSandbox', items: sandbox.length ? [{
+            ...item({}), id: text(row.id) ?? 'current', name: text(row.name), sandbox: {
+                maxDay: num(row.maxDay), maxDayChallenge: num(row.maxDayChallenge), mainQuest: num(row.mainQuest),
+                subQuests: quests?.map((value, index) => {
+                    const quest = obj(value);
+                    return { id: text(quest.id) ?? String(index), name: text(quest.name), done: typeof quest.done === 'boolean' ? quest.done : null };
+                }) ?? null,
+                baseLv: num(row.baseLv), unlockNode: num(row.unlockNode), enemyKill: num(row.enemyKill), createRift: num(row.createRift),
+                fixRift: { current: num(rift?.[0]), total: num(rift?.[1]) },
+            },
+        }] : [] });
     }
     return sections;
 }

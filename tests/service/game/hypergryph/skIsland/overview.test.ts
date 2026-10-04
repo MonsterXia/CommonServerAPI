@@ -171,3 +171,10 @@ it('selects Endfield operator avatars from charData with no ID, appearance or ex
     const ak = normalizeGameOverview(account, { status: { level: 1 }, chars: [{ charId: 'char_002_amiya', avatarUrl: square }] });
     expect(ak.operators?.[0]).not.toHaveProperty('avatarUrl');
 });
+it('exposes dedicated mode records through the public OpenAPI contract', async () => {
+    const { gameOverview } = await import('@/openapi/schemas');
+    const result = normalizeGameOverview(account, { status: { level: 1 }, sandbox: [{ id: 'sandbox', maxDay: 0 }], bossRush: [{ id: 'act1bossrush', record: { played: false } }] });
+    const parsed = gameOverview.parse(result);
+    expect(parsed.sections?.find(s => s.key === 'arknightsSandbox')?.items[0]?.sandbox?.maxDay).toBe(0);
+    expect(parsed.sections?.find(s => s.key === 'arknightsBossRush')?.items[0]?.bossRush?.played).toBe(false);
+});

@@ -130,6 +130,17 @@ export const gameOverview = z
                 name: z.string().nullable(),
                 operatorId: z.string().optional().describe('Game operator identifier; Arknights avatar resolved using official CDN rules.'),
                 artworkUrl: z.string().url().optional().describe('Public HTTPS artwork from the official Skland CDN for this record or its season/mode. Optional; frontend uses local artwork on absence or load failure. No image proxy or extra upstream request.'),
+                sandbox: z.object({
+                    maxDay: nullableNumber, maxDayChallenge: nullableNumber, mainQuest: nullableNumber,
+                    subQuests: z.array(z.object({ id: z.string(), name: z.string().nullable(), done: z.boolean().nullable() })).nullable(),
+                    baseLv: nullableNumber, unlockNode: nullableNumber,
+                    enemyKill: nullableNumber.describe('Number of successfully defended attacks, not individual enemy kills.'),
+                    createRift: nullableNumber, fixRift: z.object({ current: nullableNumber, total: nullableNumber }),
+                }).optional().describe('Latest Reclamation Algorithm record. Missing measures are null; zero remains a valid value.'),
+                bossRush: z.object({
+                    edition: z.string().nullable(), played: z.boolean().nullable(),
+                    difficulty: z.enum(['NORMAL', 'TEAM', 'EX', 'SP']).nullable(), stageCode: z.string().nullable(),
+                }).optional(),
                 nameKey: z.string().optional().describe('Stable client translation key for a known facility type.'),
                 level: nullableNumber,
                 status: z.enum(['idle', 'working', 'complete', 'locked', 'unknown']),

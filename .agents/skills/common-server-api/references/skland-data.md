@@ -32,7 +32,7 @@
 - 训练室：targetSkill=-1空闲；remainSecs相对于currentTs，不能再从lastUpdateTime扣除。
 - 会客室：board数组数量/7；自有、收到、待领取线索分别显示。dailyReward布尔含义未核实，不展示。
 - 收藏总数扣除额外阿米娅形态，只保留char_002_amiya；档案列表仍可展示全部形态。稀有度及潜能rank均+1；medal.total为蚀刻章数量。
-- 活动按SIDESTORY/BRANCHLINE且非复刻筛选，汇总zones的通关/总数；集成战略收藏品与投资分开；剿灭maxKills、保全best保留来源数值，不臆造上限。生息演算目前仅支持明确返回的ID/名称，不将未知嵌套对象塞进页面。缺失主线进度不推断“全部完成”。
+- 活动按SIDESTORY/BRANCHLINE且非复刻筛选，汇总zones的通关/总数；集成战略收藏品与投资分开；剿灭maxKills、保全best保留来源数值，不臆造上限。生息演算与引航者试炼按文末已核实的专属规则显示，不透传未知嵌套对象。缺失主线进度不推断“全部完成”。
 - 主线进度：官方 [账号组件](https://bbs.hycdn.cn/skland-fe-static/skland-game/8624.b27ec983.js) 将 `status.mainStageProgress === ""` 精确映射为“全部完成”。后端保留这个空字符串哨兵，前端仅对方舟本地化为“全部完成 / All completed”；null、缺失、空白或非法值仍表示未提供。非空值按 stageInfoMap 的 code/name/原 ID 显示；不得通过等级推断通关，也不得将此规则套用终末地任务。OpenAPI 与两端类型须保留此语义。
 
 ## 终末地
@@ -48,3 +48,17 @@
 ## 验证
 
 后端 normalizer 测试覆盖时间边界、负哨兵、超上限、缺失值、计数、公式和 OpenAPI parse；前端测试覆盖缓存时钟、中英文、过期状态及零上限。生产验证使用已有登录页面的只读角色查询，不触发短信、签到或账号变更。官方前端 hash 更新时重新核对规则，不盲目替换下载文件。
+
+
+## 生息演算与引航者试炼（2026-10-04）
+
+官方页面模块 [8624.b27ec983.js](https://bbs.hycdn.cn/skland-fe-static/skland-game/8624.b27ec983.js) 的 `Ho` 生息演算渲染器及 SDK [9560.b49ee94b.js](https://bbs.hycdn.cn/skland-fe-static/skland-game/9560.b49ee94b.js) 的 `getAkActInfo` 为字段依据；只作文本检查，不执行下载的模块。手机截图用于核对标签，不将账号数值写入规则或测试。
+
+- 生息演算显示原始 sandbox 数组的最后一条（官方先倒序，再仅渲染第一条）。保留 id/name，专属 `sandbox` 对象只挑选已核实字段。
+- maxDay / maxDayChallenge：常规模式 / “险途”测试演算生存日。mainQuest > 0、> 1、> 2 分别完成“疯狂的掠夺者”“暗沙涌动”“阿尔萨兰之影”；未知不等于未完成。
+- subQuest 的 id/name/done 映射 subQuests；done true/false/null 分别为已完成/未完成/未提供，不强制转换字符串或数字。
+- baseLv 为驻扎地等级；unlockNode 为累计探索区块次数；**enemyKill 为成功抵御敌袭次数，不能显示成击杀敌人数**；createRift 为陌域探访次数；fixRift[0]/[1] 为固有陌域委托完成数/总数。
+- 所有数量保留 0，缺失/非法为 null；未知上限不画进度条。不能通过“玩过”、基地等级或另一个统计值推断任务完成。
+- bossRush 数组按官方倒序，picUrl 是横幅。record.played 明确 false 才显示暂无记录，null 显示未提供；true 时解析 difficulty：NORMAL 初始、TEAM 定向、EX 恢弘、SP 最终试炼，stageId 在 stageInfoMap 查 code。未知难度保持 null，不能默认初始试炼。
+- `act{数字}bossrush` 的数字为期数（补足两位）；不认识的 ID 不猜期数。即使 picUrl 缺失也保留文字记录。
+- 剿灭 maxKills >= 400 显示已完成，保全 best 只显示最高进度，不伪造统一上限。

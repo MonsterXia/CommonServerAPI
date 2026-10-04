@@ -129,3 +129,36 @@ it('selects support operator identity and level without returning equipment or r
     expect(sections.find(s => s.key === 'arknightsSupport')?.items).toEqual([{ id: 'a:0', operatorId: 'a', name: 'Support', level: 90, status: 'unknown', current: null, total: null, completeAt: null }]);
     expect(JSON.stringify(sections)).not.toContain('secret');
 });
+
+it('selects the latest sandbox record and preserves known zero, false, and unknown separately', () => {
+    const items = section({ sandbox: [
+        { id: 'old', maxDay: 99 },
+        { id: 'current', name: 'Synthetic season', maxDay: 0, maxDayChallenge: 12, mainQuest: 2,
+          subQuest: [{ id: 'a', name: 'A', done: false }, { id: 'b', done: true }, { id: 'c', done: 'false' }],
+          baseLv: 3, unlockNode: 17, enemyKill: 0, createRift: 4, fixRift: [0, 6], private: 'secret' },
+    ] }, 'arknightsSandbox');
+    expect(items).toHaveLength(1);
+    expect(items?.[0]?.sandbox).toEqual({ maxDay: 0, maxDayChallenge: 12, mainQuest: 2,
+        subQuests: [{ id: 'a', name: 'A', done: false }, { id: 'b', name: null, done: true }, { id: 'c', name: null, done: null }],
+        baseLv: 3, unlockNode: 17, enemyKill: 0, createRift: 4, fixRift: { current: 0, total: 6 } });
+    expect(JSON.stringify(items)).not.toContain('secret');
+    expect(section({ sandbox: [{}] }, 'arknightsSandbox')?.[0]?.sandbox).toEqual({ maxDay: null, maxDayChallenge: null, mainQuest: null,
+        subQuests: null, baseLv: null, unlockNode: null, enemyKill: null, createRift: null, fixRift: { current: null, total: null } });
+    expect(section({ sandbox: [] }, 'arknightsSandbox')).toEqual([]);
+});
+
+it('keeps boss rush records without artwork and never infers unplayed or difficulty from missing data', () => {
+    const items = section({ bossRush: [
+        { id: 'act1bossrush', record: { played: true, difficulty: 'SP', stageId: 'fixture' }, picUrl: 'https://bbs.hycdn.cn/public/test.png' },
+        { id: 'act2bossrush', record: { played: false, difficulty: 'SP', stageId: 'fixture' } },
+        { id: 'act3bossrush', record: { difficulty: 'NORMAL' } },
+        { id: 'future', record: { played: true, difficulty: 'NEW' } },
+    ], stageInfoMap: { fixture: { code: 'TN-2' } } }, 'arknightsBossRush');
+    expect(items?.map(item => item.bossRush)).toEqual([
+        { edition: null, played: true, difficulty: null, stageCode: null },
+        { edition: '03', played: null, difficulty: null, stageCode: null },
+        { edition: '02', played: false, difficulty: null, stageCode: null },
+        { edition: '01', played: true, difficulty: 'SP', stageCode: 'TN-2' },
+    ]);
+    expect(items?.[3]?.artworkUrl).toBe('https://bbs.hycdn.cn/public/test.png');
+});

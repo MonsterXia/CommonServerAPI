@@ -25,6 +25,8 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 
 业务数据契约在 `src/model/game/hypergraph/skIsland/overview.ts` 与 `src/openapi/schemas.ts` 同步维护。新增字段同时协调前端 GameOverview、国际化和渲染。schema 中写明可空、单位与哨兵；不要把上游凭证、完整私有响应或图片目录塞进概览。
 
+生息演算采用当前（原始数组最后一条）记录，返回专属 sandbox 字段；引航者试炼返回 bossRush 字段和可选横幅。详细映射见显示规则文档，重点区分零值、false 与缺失；enemyKill 表示成功抵御敌袭次数。不要因缺封面而丢弃记录，也不要恢复只保留 sandbox ID/名称的旧逻辑。
+
 ## 资料与图片边界
 
 核对依据优先官方页面/formatter/codec，再以开源实现交叉验证，具体链接和日期在显示规则文档。用户录屏用于核对标签、单位与展示条件，不作为可提交 fixture。官方哈希版本可能变化，查新字段时重新验证来源。
