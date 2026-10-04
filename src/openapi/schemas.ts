@@ -128,6 +128,7 @@ export const gameOverview = z
             items: z.array(z.object({
                 id: z.string(),
                 name: z.string().nullable(),
+                skinId: z.string().nullable().optional().describe('Arknights equipped skin from chars[].skinId, matched by operatorId for support. Null when unknown; no inference from owned skins.'),
                 operatorId: z.string().optional().describe('Game operator identifier; Arknights avatar resolved using official CDN rules.'),
                 artworkUrl: z.string().url().optional().describe('Public HTTPS artwork from the official Skland CDN for this record or its season/mode. Optional; frontend uses local artwork on absence or load failure. No image proxy or extra upstream request.'),
                 sandbox: z.object({
@@ -158,6 +159,7 @@ export const gameOverview = z
                     name: z.string(),
                     level: nullableNumber,
                     phase: nullableNumber,
+                    skinId: z.string().nullable().optional().describe('Arknights currently equipped chars[].skinId; null when unknown. Frontend prefers this skin avatar, then the default operator avatar.'),
                     avatarUrl: z.string().url().optional().describe('Endfield official charData.avatarSqUrl, falling back to avatarRtUrl when absent or invalid. No additional upstream request. Missing or failed images use a text avatar.'),
                     rarity: nullableNumber.optional().describe('Displayed star count, already converted to one-based rarity.'),
                     potential: nullableNumber.optional().describe('Displayed potential: Arknights source rank + 1, Endfield potentialLevel unchanged (zero is valid).'),

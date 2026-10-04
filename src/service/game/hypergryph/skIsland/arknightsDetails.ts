@@ -157,8 +157,14 @@ export function normalizeArknightsDetails(detail: unknown, currentTs: number): A
     rows('arknightsTrading', building.tradings, (row, index) => trading(row, index, currentTs));
     const assists = list(data.assistChars);
     if (assists) {
+        // Official getAkCharInfo uses the equipped skin from chars even for assists.
+        const equippedSkins = new Map((list(data.chars) ?? []).map(value => {
+            const char = obj(value);
+            return [text(char.charId), text(char.skinId)] as const;
+        }));
         sections.push({ key: 'arknightsSupport', items: assists.map(obj).filter(row => text(row.charId)).map((row, index) => ({
             ...item(row, index), id: `${String(row.charId)}:${index}`, operatorId: text(row.charId)!,
+            skinId: equippedSkins.get(text(row.charId)) ?? null,
             name: text(obj(obj(data.charInfoMap)[String(row.charId)]).name) ?? text(row.charId),
         })) });
     }

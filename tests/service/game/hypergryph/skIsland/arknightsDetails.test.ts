@@ -126,7 +126,7 @@ it('keeps distinct game-record quantities separate without inventing maxima or f
 
 it('selects support operator identity and level without returning equipment or raw private data', () => {
     const sections = normalizeArknightsDetails({ assistChars: [{ charId: 'a', level: 90, token: 'secret' }, {}], charInfoMap: { a: { name: 'Support' } } }, 1800000000);
-    expect(sections.find(s => s.key === 'arknightsSupport')?.items).toEqual([{ id: 'a:0', operatorId: 'a', name: 'Support', level: 90, status: 'unknown', current: null, total: null, completeAt: null }]);
+    expect(sections.find(s => s.key === 'arknightsSupport')?.items).toEqual([{ id: 'a:0', operatorId: 'a', skinId: null, name: 'Support', level: 90, status: 'unknown', current: null, total: null, completeAt: null }]);
     expect(JSON.stringify(sections)).not.toContain('secret');
 });
 

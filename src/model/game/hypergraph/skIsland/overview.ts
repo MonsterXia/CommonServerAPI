@@ -7,6 +7,7 @@ export interface OverviewSection {
         name: string | null;
         nameKey?: string;
         operatorId?: string;
+        skinId?: string | null;
         artworkUrl?: string;
         sandbox?: SandboxRecord;
         bossRush?: BossRushRecord;
@@ -44,7 +45,7 @@ export interface GameOverview {
     };
     metrics: OverviewMetric[];
     sections?: OverviewSection[];
-    operators: { id: string; name: string; avatarUrl?: string; level: number | null; phase: number | null; rarity?: number | null; potential?: number | null; profession?: string | null; element?: string | null }[] | null;
+    operators: { id: string; name: string; avatarUrl?: string; skinId?: string | null; level: number | null; phase: number | null; rarity?: number | null; potential?: number | null; profession?: string | null; element?: string | null }[] | null;
 }
 
 export interface SandboxRecord {

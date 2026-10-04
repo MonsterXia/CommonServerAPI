@@ -151,7 +151,8 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
         for (const [key, source] of [['towerLower', tower.lowerItem], ['towerHigher', tower.higherItem]] as const) {
             if (source !== undefined) {
                 const counter = obj(source), day = new Date((calculatedAt + 14400) * 1000);
-                const reset = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() >= 16 ? 16 : 1) / 1000 - 14400;
+                // SSS rewards now have a monthly cycle, beginning on the 16th at CN 04:00.
+                const reset = Date.UTC(day.getUTCFullYear(), day.getUTCMonth() - (day.getUTCDate() < 16 ? 1 : 0), 16) / 1000 - 14400;
                 add(key, 'daily', snapshot !== null && snapshot < reset && num(counter.current) !== null ? 0 : counter.current, counter.total);
             }
         }
@@ -170,7 +171,7 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
             ...(endfield ? {
                 profession: text(obj(metadata.profession).value), element: text(obj(metadata.property).value),
                 avatarUrl: artworkUrl(charData.avatarSqUrl) ?? artworkUrl(charData.avatarRtUrl),
-            } : {}),
+            } : { skinId: text(char.skinId) }),
         };
     }).filter((v): v is NonNullable<typeof v> => v !== null).sort((a, b) => (b.level ?? -1) - (a.level ?? -1)) ?? null;
     return {

@@ -48,4 +48,4 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 
 ## 终末地干员头像
 
-按用户要求（2026-10-04），概览 operators[].avatarUrl 保留 charData.avatarSqUrl，缺失或非法时尝试 avatarRtUrl；复用 artwork.ts 的官方 HTTPS CDN 校验。来源为官方 dist-BZImVwlH.js 中 GameDataInfoCodec → As.decode → Ft.decode。不增加逐干员请求、头像接口或图片代理；URL 来自已获取的账号资料，不生成本地 ID/MD5/管理员形象图片 map。前端缺图或加载失败使用姓名首字文字；方舟仍由前端按官方 charId/CDN 规则生成地址。profile.endministratorGender 保留兼容，不再用于选头像。
+按用户要求（2026-10-04），概览 operators[].avatarUrl 保留 charData.avatarSqUrl，缺失或非法时尝试 avatarRtUrl；复用 artwork.ts 的官方 HTTPS CDN 校验。来源为官方 dist-BZImVwlH.js 中 GameDataInfoCodec → As.decode → Ft.decode。不增加逐干员请求、头像接口或图片代理；URL 来自已获取的账号资料，不生成本地 ID/MD5/管理员形象图片 map。前端缺图或加载失败使用姓名首字文字；方舟透传 operators[].skinId 与 arknightsSupport.items[].skinId，二者均按 charId 读取 chars 当前装备皮肤；未知值为null，不从持有皮肤或助战其他字段推测。前端优先皮肤图，再回退官方 charId 默认图；详见显示规则。profile.endministratorGender 保留兼容，不再用于选头像。

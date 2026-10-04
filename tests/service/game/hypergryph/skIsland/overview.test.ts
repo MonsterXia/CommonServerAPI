@@ -139,8 +139,8 @@ it('keeps game-specific rarity, potential, clocks and stamina rules in the OpenA
     expect(gameOverview.parse(ak)).toEqual(ak);
 });
 
-it('resets SSS rewards on the first and sixteenth at CN 04:00, preserving missing counters', () => {
-    for (const day of ['2026-10-01', '2026-10-16']) {
+it('resets SSS rewards monthly on the sixteenth at CN 04:00, preserving missing counters', () => {
+    for (const day of ['2026-10-16', '2027-01-16', '2028-03-16']) {
         const ts = Date.parse(day + 'T04:00:00+08:00') / 1000;
         const raw = { currentTs: ts - 1, status: { storeTs: ts - 10 }, tower: { reward: { lowerItem: { current: 24, total: 24 }, higherItem: { total: 60 } } } };
         const before = normalizeGameOverview(account, raw);
@@ -177,4 +177,43 @@ it('exposes dedicated mode records through the public OpenAPI contract', async (
     const parsed = gameOverview.parse(result);
     expect(parsed.sections?.find(s => s.key === 'arknightsSandbox')?.items[0]?.sandbox?.maxDay).toBe(0);
     expect(parsed.sections?.find(s => s.key === 'arknightsBossRush')?.items[0]?.bossRush?.played).toBe(false);
+});
+
+it('preserves SSS rewards across the first of the month and handles the previous year', () => {
+    for (const [snapshot, current] of [
+        ['2026-09-30T23:00:00+08:00', '2026-10-01T04:00:00+08:00'],
+        ['2026-12-16T04:00:00+08:00', '2027-01-15T23:00:00+08:00'],
+        ['2028-02-16T04:00:00+08:00', '2028-03-16T03:59:59+08:00'],
+    ]) {
+        const result = normalizeGameOverview(account, {
+            currentTs: Date.parse(current) / 1000, status: { storeTs: Date.parse(snapshot) / 1000 },
+            tower: { reward: { lowerItem: { current: 60, total: 60 }, higherItem: { current: 0, total: 24 } } },
+        });
+        expect(result.metrics.find(m => m.key === 'towerLower')?.current).toBe(60);
+        expect(result.metrics.find(m => m.key === 'towerHigher')?.current).toBe(0);
+    }
+});
+
+it('exposes the equipped skin for roster and assists by charId, not owned skins or assist metadata', async () => {
+    const { gameOverview } = await import('@/openapi/schemas');
+    const result = normalizeGameOverview(account, {
+        status: { level: 1 },
+        chars: [
+            { charId: 'char_002_amiya', skinId: 'char_002_amiya@epoque#4' },
+            { charId: 'char_1001_amiya2', skinId: ' ' },
+            { charId: 'char_99999_future', skinId: 123 },
+        ],
+        skins: [{ id: 'owned-but-not-equipped' }],
+        assistChars: [
+            { charId: 'char_99999_future', skinId: 'incorrect-assist-skin' },
+            { charId: 'char_002_amiya', skinId: 'incorrect-assist-skin' },
+            { charId: 'missing-character', skinId: 'do-not-infer' },
+        ],
+    });
+    const parsed = gameOverview.parse(result);
+    expect(parsed.operators?.map(char => char.skinId)).toEqual(['char_002_amiya@epoque#4', null, null]);
+    expect(parsed.sections?.find(section => section.key === 'arknightsSupport')?.items.map(item => item.skinId))
+        .toEqual([null, 'char_002_amiya@epoque#4', null]);
+    const ef = normalizeGameOverview({ ...account, appCode: 'endfield' }, { detail: { base: { level: 1 }, chars: [{ id: 'future', skinId: 'not-arknights' }] } });
+    expect(ef.operators?.[0]).not.toHaveProperty('skinId');
 });

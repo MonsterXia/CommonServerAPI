@@ -19,7 +19,7 @@
 | 方舟理智 | current + floor((currentTs-lastApAddTime)/360)，到 completeRecoveryTime 回满。-1 不恢复；超上限保留。 |
 | 方舟无人机 | value + floor((maxValue-value) × elapsed/remainSecs)；满仓期限 lastUpdateTime+remainSecs。禁止固定通用恢复速率。 |
 | 终末地理智 | 直接 curStamina/maxStamina，maxTs 仅用于回满时间；0 表示无需倒计时。不套用方舟公式。 |
-| 方舟日/周任务和剿灭 | 根据 storeTs 与北京时间04:00重置比较；周一重置周任务/剿灭。保全派驻奖励每月1、16日04:00重置。 |
+| 方舟日/周任务和剿灭 | 根据 storeTs 与北京时间04:00重置比较；周一重置周任务/剿灭。保全派驻奖励每月16日04:00重置（不是旧版每月1、16日）。 |
 
 零值有效；缺失/非法值 null；进度条仅用于正上限并最多100%。上游未提供基准，不编造恢复。静态图像和映射在前端发布，不增加图片代理或逐干员请求。
 
@@ -62,3 +62,18 @@
 - bossRush 数组按官方倒序，picUrl 是横幅。record.played 明确 false 才显示暂无记录，null 显示未提供；true 时解析 difficulty：NORMAL 初始、TEAM 定向、EX 恢弘、SP 最终试炼，stageId 在 stageInfoMap 查 code。未知难度保持 null，不能默认初始试炼。
 - `act{数字}bossrush` 的数字为期数（补足两位）；不认识的 ID 不猜期数。即使 picUrl 缺失也保留文字记录。
 - 剿灭 maxKills >= 400 显示已完成，保全 best 只显示最高进度，不伪造统一上限。
+
+
+## 日常状态卡片与倒计时（2026-10-04）
+
+官方首页当前仍加载上述 formatter；账号组件列出九项：理智、训练室、公开招募、公招刷新、每周报酬合成玉、每日任务、每周任务、数据增补仪、数据增补条。
+
+- 理智倒计时来自 `status.ap.completeRecoveryTime`（概览 `recoveryAt`）；训练来自 `building.training.remainSecs + currentTs`，公招全部完成取未完成槽位 `finishTs` 最大值，刷新次数获取时间来自 `building.hire.completeWorkTime`（均已规范化为详情 `completeAt`）。训练保留干员姓名和设备空闲/专精完成说明；公招已完成含空闲可用槽位，与官方一致。
+- 日常、周常/剿灭倒计时是按北京时间每日/每周一04:00计算，不是接口返回的说明字符串。前端复用上游计算时钟及内存接收基准，不按浏览器本地时区计算，不增加轮询，过界只调整展示副本；缺失仍为缺失。
+- 保全奖励现在是每月16日04:00刷新；[官方2026年6月公告](https://ak.hypergryph.com/news/7364)、[官方5月公告](https://ak.hypergryph.com/news/4935)均列明16日04:00奖励进度更新。2026-10-04核实的森空岛 formatter 倒计时漏加4小时，显示16日00:00；按用户选择采用游戏实际04:00，不照搬这一偏差。后端用上游 storeTs 与最近一次每月16日04:00比较，月初不再错误清零。
+- 前端 `dailyStatus.ts` 复用现有 metrics/sections 生成卡片，不扩展接口；`recruitRefresh` 从基建数字卡调整到日常状态卡，精确次数保留在办公室详情。公招/训练到期按已有时间更新状态，公招刷新到期只显示可用，不虚构次数。
+- 倒计时沿用官方天/小时/分钟精度：天和小时都有时省略分钟；分钟向上取整但最多59。前端回归在 `tests/daily-status.test.js` 和 `tests/e2e/overview-metrics.spec.ts`。
+
+## 方舟装备皮肤头像
+
+2026-10-04 核对[官方 SDK](https://bbs.hycdn.cn/skland-fe-static/skland-game/9560.b49ee94b.js) 的 getAkCharInfo 与[官方账号组件](https://bbs.hycdn.cn/skland-fe-static/skland-game/8624.b27ec983.js)：头像优先 skinAvatarUrl，缺失回退 charAvatarUrl。skinId 从账号 chars 按 charId 获取，assist 模式也复用该皮肤，不使用持有 skins 列表推测。概览 operators[].skinId 与 arknightsSupport.items[].skinId 为可选可空字符串，兼容旧后端；非法/缺失上游值为 null。前端按官方 CDN 规则编码 #/@ 路径，皮肤图失败回默认图，再失败显示姓名首字；刷新换肤需清除旧图片失败状态。不增加上游请求或图片代理，终末地继续使用原 avatarUrl。
