@@ -29,7 +29,7 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 
 核对依据优先官方页面/formatter/codec，再以开源实现交叉验证，具体链接和日期在显示规则文档。用户录屏用于核对标签、单位与展示条件，不作为可提交 fixture。官方哈希版本可能变化，查新字段时重新验证来源。
 
-公共图像及链接由 EasonWeb 的 `src/assets/game-avatars/`、`src/assets/skland/` 管理；需要图片规则时读前端仓的 `.agents/skills/skland-frontend/SKILL.md`。后端提供稳定 game/char/region ID 与确实需要的游戏内形象字段；条目封面例外：保留官方已随概览返回且通过 CDN 校验的 `artworkUrl`，不代理图片，不逐干员请求补图，不从账号持有列表生成公共资源清单。
+前端 `operatorAvatars.ts` 管理方舟头像地址规则，`src/assets/skland/` 管理本地通用图与地区图；`src/assets/game-avatars/README.md` 仅保留头像来源说明，不再存放头像或映射。终末地干员 `avatarUrl` 与条目 `artworkUrl` 从已有官方响应选择并经过 CDN 校验；不代理图片，不逐干员请求补图，不从账号持有列表生成公共资源清单。具体前端规则见 EasonWeb 的 `.agents/skills/skland-frontend/SKILL.md`。
 
 ## 验证
 
