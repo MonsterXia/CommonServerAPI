@@ -1,8 +1,11 @@
+import { artworkUrl } from './artwork';
+
 export type ArknightsDetailItem = {
     id: string;
     name: string | null;
     nameKey?: string;
     operatorId?: string;
+    artworkUrl?: string;
     level: number | null;
     status: 'idle' | 'working' | 'complete' | 'locked' | 'unknown';
     current: number | null;
@@ -175,7 +178,7 @@ export function normalizeArknightsDetails(detail: unknown, currentTs: number): A
         for (const value of activities) {
             const row = obj(value), id = text(row.actId), info = obj(obj(data.activityInfoMap)[id ?? '']);
             if (!id || info.isReplicate === true || !['SIDESTORY', 'BRANCHLINE'].includes(String(info.type))) continue;
-            const result = { ...item({}), id, name: text(info.name) }, zones = list(row.zones);
+            const result = { ...item({}), id, name: text(info.name), artworkUrl: artworkUrl(info.picUrl) }, zones = list(row.zones);
             if (zones) {
                 const sum = (key: string) => {
                     const values = zones.map(zone => num(obj(zone)[key]));
@@ -197,7 +200,7 @@ export function normalizeArknightsDetails(detail: unknown, currentTs: number): A
             const row = obj(value), id = text(row[idField]);
             if (!id) continue;
             const info = obj(obj(infoMap)[id]);
-            items.unshift({ ...item({}), id, name: text(info.name), current: read(row), ...(subtitle ? { subtitle: subtitle(info) } : {}) });
+            items.unshift({ ...item({}), id, name: text(info.name), artworkUrl: artworkUrl(info.picUrl), current: read(row), ...(subtitle ? { subtitle: subtitle(info) } : {}) });
         }
         sections.push({ key, items });
     }

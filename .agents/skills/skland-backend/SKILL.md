@@ -29,7 +29,7 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 
 核对依据优先官方页面/formatter/codec，再以开源实现交叉验证，具体链接和日期在显示规则文档。用户录屏用于核对标签、单位与展示条件，不作为可提交 fixture。官方哈希版本可能变化，查新字段时重新验证来源。
 
-公共图像及链接由 EasonWeb 的 `src/assets/game-avatars/`、`src/assets/skland/` 管理；需要图片规则时读前端仓的 `.agents/skills/skland-frontend/SKILL.md`。后端只给稳定 game/char/region ID 与确实需要的游戏内形象字段，不代理图片，不逐干员请求补图，不从账号持有列表生成公共资源清单。
+公共图像及链接由 EasonWeb 的 `src/assets/game-avatars/`、`src/assets/skland/` 管理；需要图片规则时读前端仓的 `.agents/skills/skland-frontend/SKILL.md`。后端提供稳定 game/char/region ID 与确实需要的游戏内形象字段；条目封面例外：保留官方已随概览返回且通过 CDN 校验的 `artworkUrl`，不代理图片，不逐干员请求补图，不从账号持有列表生成公共资源清单。
 
 ## 验证
 
@@ -37,3 +37,9 @@ updatedAt 是上游快照时间，fetchedAt 是本次读取，calculatedAt 优�
 - 用合成数据覆盖缺失/零值/精确空字符串、时间边界、超上限、两游戏差异与 OpenAPI parse。不要提交用户录屏、真实角色快照或凭证。
 - API 变更检查 `tests/service/game/hypergryph/accountService.test.ts` 的角色归属/错误契约，新增路由同时更新 OpenAPI；`npm run openapi:export` 生成 build/openapi.json，不提交生成文件。
 - 发布沿项目授权与流程执行；实际生产只读角色查询与页面显示才是线上验证。测试替身不证明官方服务可用，短信/签到/解绑不是只读检查。中间执行计划保存在仓库外。
+
+## 条目官方封面
+
+2026-10-04 核对官方 `9560.b49ee94b.js` 的 getAkActInfo：活动、集成战略、保全、剿灭由对应 infoMap.picUrl 提供封面。Endfield `dist-BZImVwlH.js` 定义 warEchoes.seasons 的 kvImage/headerImage、indieHard.indieHardGroups 的 pic；赛季/周使用对应赛季图片，秘境使用当前组图片。来源完整链接见前端 skland-frontend/references/assets.md。
+
+概览条目新增可选 artworkUrl；只选择这些已核实字段，复用已取得的原始数据，不补取目录或代理图片，不添加干员头像 URL。artwork.ts 校验官方 HTTPS CDN、禁止 URL 凭证与非默认端口；非法/缺失值省略，不影响游戏数字。前端本地条目资源与分组图依次兜底。未核实的生息演算封面或独立关卡图不猜测；不得从真实账号响应生成公共资源清单。

@@ -7,6 +7,7 @@ export interface OverviewSection {
         name: string | null;
         nameKey?: string;
         operatorId?: string;
+        artworkUrl?: string;
         level: number | null;
         status: 'idle' | 'working' | 'complete' | 'locked' | 'unknown';
         current: number | null;

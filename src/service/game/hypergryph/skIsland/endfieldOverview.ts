@@ -1,4 +1,5 @@
 import type { OverviewMetric, OverviewSection } from '@/model/game/hypergraph/skIsland/overview';
+import { artworkUrl } from './artwork';
 
 type Obj = Record<string, unknown>;
 const obj = (value: unknown): Obj => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Obj : {};
@@ -131,10 +132,10 @@ export function normalizeEndfieldDetails(raw: unknown): { metrics: OverviewMetri
         const seasonItems: OverviewSection['items'] = [], weekItems: OverviewSection['items'] = [], stageItems: OverviewSection['items'] = [];
         for (const [seasonIndex, rawSeason] of seasons.entries()) {
             const season = obj(rawSeason), seasonId = text(season.id) ?? `season-${seasonIndex}`, seasonName = text(season.name), seasonStars = stars(season.stars, 9);
-            seasonItems.push({ ...item(seasonId, seasonName, null, seasonStars, 9), rating: rating(seasonStars, season.allPlusTasks) });
+            seasonItems.push({ ...item(seasonId, seasonName, null, seasonStars, 9), rating: rating(seasonStars, season.allPlusTasks), artworkUrl: artworkUrl(season.kvImage) ?? artworkUrl(season.headerImage) });
             for (const [weekIndex, rawWeek] of (rows(season.weeks) ?? []).entries()) {
                 const week = obj(rawWeek), weekId = `${seasonId}:${text(week.id) ?? weekIndex}`, weekName = text(week.name), weekStars = stars(week.stars, 9);
-                weekItems.push({ ...item(weekId, weekName, null, weekStars, 9), subtitle: seasonName, rating: rating(weekStars, week.allPlusTasks) });
+                weekItems.push({ ...item(weekId, weekName, null, weekStars, 9), subtitle: seasonName, rating: rating(weekStars, week.allPlusTasks), artworkUrl: artworkUrl(season.headerImage) ?? artworkUrl(season.kvImage) });
                 for (const [stageIndex, rawStage] of (rows(week.dungeonGroups) ?? []).entries()) {
                     const stage = obj(rawStage);
                     stageItems.push({ ...item(`${weekId}:${stageIndex}`, text(stage.name), null, stars(stage.star, 3), 3), subtitle: joinText(seasonName, weekName) });
@@ -155,7 +156,7 @@ export function normalizeEndfieldDetails(raw: unknown): { metrics: OverviewMetri
             const dungeon = obj(value), normal = obj(dungeon.normalDungeon), hard = obj(dungeon.hardDungeon);
             const flags = [normal.isPass, hard.isPass];
             const current = flags.every(flag => typeof flag === 'boolean') ? flags.filter(flag => flag === true).length : null;
-            return { ...item(text(normal.id) ?? `monolith-${index}`, text(normal.name), null, current, 2), subtitle: title };
+            return { ...item(text(normal.id) ?? `monolith-${index}`, text(normal.name), null, current, 2), subtitle: title, artworkUrl: artworkUrl(monolith.pic) };
         }) });
     }
     return { metrics, sections };

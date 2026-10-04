@@ -129,6 +129,7 @@ export const gameOverview = z
                 id: z.string(),
                 name: z.string().nullable(),
                 operatorId: z.string().optional().describe('Game operator identifier; avatar resolved from frontend static resources.'),
+                artworkUrl: z.string().url().optional().describe('Public HTTPS artwork from the official Skland CDN for this record or its season/mode. Optional; frontend uses local artwork on absence or load failure. No image proxy or extra upstream request.'),
                 nameKey: z.string().optional().describe('Stable client translation key for a known facility type.'),
                 level: nullableNumber,
                 status: z.enum(['idle', 'working', 'complete', 'locked', 'unknown']),
