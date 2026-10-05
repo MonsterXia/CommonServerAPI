@@ -1,11 +1,11 @@
 ---
 name: common-server-api
-description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代码审查。当任务涉及此项目的 Hono 路由、用户与 Post 管理员认证、鹰角/森空岛服务、Prisma/D1 数据模型或 Workers 绑定时使用，提供项目入口、响应契约和验证方式。
+description: 用于 CommonServerAPI 的接口开发、排障和代码审查，涵盖 Hono/OpenAPI 路由、Cookie 会话、注册与密码重置、Post 管理员绑定、鹰角账号、Prisma/D1 迁移和 Workers 服务初始化。森空岛取数、签到与概览字段细节配合 skland-backend 使用。
 ---
 
 # CommonServerAPI 项目基础
 
-本 skill 适用于当前仓库，路径均相对于仓库根目录。先读 `AGENTS.md`，再查看任务相关源码；下列内容是导航和现有约定，若实现发生变化，以当前源码和测试为准。
+本 skill 适用于当前仓库，源码与命令路径均相对于仓库根目录，Markdown 链接相对于文档。内容按 2026-10-05 当前工作区（包括未提交的新模块）核对；先读 `AGENTS.md`、检查 `git status --short`，再查看任务相关源码和测试。README 的历史示例、旧原型与生成文件不能替代当前实现。
 
 ## 项目入口
 
@@ -17,6 +17,7 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 | OpenAPI / Swagger / 契约测试 | `src/openapi/`、`tests/openapi/`、`scripts/export-openapi.ts` |
 | 路由挂载 | `src/router/router.ts`、`src/router/routerfactory.ts` |
 | 用户注册、登录与超管 | `src/router/user/`、`src/controller/user/`、`src/service/user/` |
+| 密码重置、旧会话失效 | `src/router/user/user.ts`、`src/service/user/passwordResetService.ts`、`src/lib/jwt.ts`、`migrations/0006_password_reset.sql` |
 | Post 管理员与账号绑定 | `src/router/post/postAdmin.ts`、`src/controller/post/postAdminController.ts`、`src/service/post/postAdminService.ts` |
 | 鹰角绑定、角色查询、概览与签到 | `src/router/game/hypergryph/account.ts`、`src/service/game/hypergryph/accountService.ts` |
 | 第三方协议与签名 | `src/common/API/`、`src/common/config/endpoints.ts`、`src/util/skLand.ts` |
@@ -26,7 +27,14 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 
 认证、存储或第三方服务变更时，按需阅读 [领域约定与实现注意点](references/domains.md)。
 
-涉及森空岛取数、概览字段、恢复公式或官方数据差异时，使用 [森空岛后端数据 skill](../skland-backend/SKILL.md)。
+涉及森空岛取数、签到协议、概览字段、恢复公式或官方数据差异时，使用 [森空岛后端 skill](../skland-backend/SKILL.md)。游戏模块与测试导航在那里维护。
+
+## 路由边界
+
+- `src/router/router.ts` 挂载 `/user`、`/game`、`/post`，健康检查 `GET /` 只返回 `{ message }`，不使用业务 envelope。
+- `/game/hypergryph/account` 是网站 Cookie 认证入口，包括短信、绑定/解绑、角色列表、概览、手动签到。`/game/hypergryph` 与 `/game/hypergryph/skLand` 还挂载传入上游凭证的旧协议接口，不能误写成所有游戏路由都要求网站 Cookie。
+- `/post/admin` 是已挂载的独立管理员能力；前端隐藏不代表后端不存在。`superAdmin.ts` 定义 API_KEY Bearer 路由但未挂载；`endfield/endfield.ts` 是空路由，不存在独立的终末地详情 HTTP 接口。
+- 保留 `hypergryph`/`hypergraph`、`skLand`/`skIsland` 的现有路径和大小写。`src/resources/SKIslandCheckIn.ts` 是有顶层执行的历史脚本，不是应用入口、测试或自动签到 Workflow，不作为验证命令运行。
 
 ## 接口开发约定
 
@@ -35,7 +43,7 @@ description: 用于 CommonServerAPI 仓库的接口开发、问题排查和代�
 - 业务路由统一使用 `createNewRouter()` 创建 `OpenAPIHono`，通过 `.openapi(route, handler)` 注册并沿父路由挂载。请求/响应 schema 在 `src/openapi/schemas.ts`，方法、路径、唯一 operationId、状态码及 security 在 `src/openapi/routes.ts`；不要用裸 `.get()` / `.post()` 新增无文档的业务接口。
 - Controller 通过 `src/controller/handlers.ts` 的 `createValidatedHandler(parser, service, failureMessage, source?)` 解析 JSON 对象或 query 并调用业务校验；无输入的服务使用 `createServiceHandler(service, failureMessage)`。Service 返回 `StandardServerResult<T>`。非法 JSON、null、数组及非对象 body 返回 400；parser 的业务错误与 207 等服务状态保留；未捕获异常返回稳定 500，不序列化原始错误或请求凭证。复用已有邮箱与密码校验器，避免另建不一致的规则。
 - `buildStandardServerResponse` 的真实参数顺序为 `(success, message, data, error, httpStatus)`。状态码是**第五个参数**，不要将状态码误放到 error 参数中。
-- `buildContextJson` 依据 `httpStatus >= 400` 判断错误，不依据 `success`：正常响应为 `{ message, data, httpStatus }`，错误响应为 `{ message, error, httpStatus }`。内部 `success` 不会自动出现在 HTTP 响应中。
+- `buildContextJson` 依据 `httpStatus >= 400` 判断错误，不依据 `success`：正常响应为 `{ message, data, httpStatus }`，错误响应为 `{ message, error, httpStatus }`。内部 `success` 不会自动出现在 HTTP 响应中；错误为空时这里回退为 `Unknown error`，而 `buildErrorContextJson` 原样保留 error（可为 null）。
 - HTTP 状态码常量统一从 `@/util/hono` 导入 `businessStatusCode`。
 
 例如 service 中的拒绝响应：
@@ -58,7 +66,8 @@ return buildStandardServerResponse(
 - `.openapi()` 根据同一 Zod 声明校验输入；保留 service 的邮箱规范化和业务规则。JSON 结构错误统一 400，不支持的 body 媒体类型为 415；`routerfactory.ts` 将校验异常转为现有错误封装，不能暴露原始凭证。响应不自动校验/裁剪，修改响应时在测试中核对实际 JSON 与 schema。
 - `security` 只描述鉴权，不能替代 middleware。`authMiddleware` / `postAdminAuthMiddleware` 必须在校验器之前；Post 绑定/解绑是同一个 security 对象内的两个 Cookie（AND），不要写成两个对象（OR）。Swagger 登录后依赖浏览器 Cookie，不能在 Authorize 中手动设置 HttpOnly Cookie。
 - schema 明确区分可空字段与可选字段，保留实际 201 / 207 / 410 等状态以及旧路径大小写。未挂载超管路由保持关闭，不为补文档而开放。
-- 新增或修改接口运行 `npm test -- tests/openapi`、类型检查和相关 service 测试；覆盖率测试对比实际挂载路由，增加接口时更新预期数量。Swagger UI CDN 版本固定在 `document.ts`，关闭持久授权、外部 validator 与 URL 配置覆盖。
+- `tests/openapi/document.test.ts` 对比实际挂载路由和规范，当前断言 32 个 operation（含健康检查，不含 docs/spec），并检查唯一 operationId；新增接口更新该断言。`tests/openapi/requests.test.ts` 检查媒体类型、鉴权顺序和响应兼容；新增或修改接口运行 `npm test -- tests/openapi`、类型检查和相关 service 测试。Swagger UI CDN 版本固定在 `document.ts`，关闭持久授权、外部 validator 与 URL 配置覆盖。
+- `createServiceHandler` 隐藏未捕获异常，但不能自动清理 service 主动返回的 error；旧协议和部分 service 仍有自身错误转换。审查时沿完整链路核对，不宣称所有历史接口都已脱敏。登录/注册及旧凭证交换有明确的 token 响应契约；普通账号与概览响应则只选取公开字段。
 
 ## Workers 与数据变更
 
@@ -94,9 +103,11 @@ return buildStandardServerResponse(
 
 按改动范围选择验证：业务逻辑运行类型检查与相关测试；数据库变更增加本地迁移验证；入口、依赖或运行时变更增加 dry-run。仅编辑文档或 skill 时检查格式、引用和描述准确性即可。
 
-测试统一放在根目录 `tests/`，按 `src/` 的目录结构组织，使用 `@/` 导入被测源码及 mock 目标；不要将测试放回 `src/`。
+测试统一放在根目录 `tests/`，新测试沿现有领域位置组织，使用 `@/` 导入被测源码及 mock 目标。现有终末地测试直接在 `tests/` 下（如 `tests/endfieldDevelopment.test.ts`），只运行 `tests/service/` 不会覆盖它们。
 
-测试使用 Vitest 的 Node 环境，并非默认 Workers pool。已有测试使用模块 mock、Hono `app.request`，密码重置测试还使用 `node:sqlite` 的内存数据库模拟 D1 调用；需要支持该模块的 Node 运行时。不要把这些测试通过描述成真实 Cloudflare D1/KV 验证。
+测试使用 Vitest 的 Node 环境，并非 Workers pool。已有测试使用模块 mock、Hono `app.request`，密码重置测试还使用 `node:sqlite` 的内存数据库模拟 D1 调用。Node 22.12 需 `NODE_OPTIONS=--experimental-sqlite npm test`；其他版本按实际运行时能力选择，不能笼统认为所有 Node 22 都需此开关。不要把这些测试通过描述成真实 Cloudflare D1/KV 验证。
+
+按领域查回归：认证/注册看 `tests/lib/jwt.test.ts`、`tests/service/user/`、`tests/common/validation/` 和 `tests/common/service/`；Post 看 `tests/service/post/`；路由与网关看 `tests/controller/`、`tests/openapi/`、`tests/common/gateway/`；来源策略看 `tests/common/config/origin.test.ts`。游戏测试清单见森空岛 skill。
 
 接口测试关注权限、状态码、响应字段及数据变化；邮件、短信和真实游戏 API 使用替身。发布任务可使用 `npm run deploy`，它会先生成 Prisma Client 再部署；普通开发验证不等于授权部署、远程迁移或真实账号签到。
 
