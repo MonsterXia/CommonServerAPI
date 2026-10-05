@@ -22,5 +22,10 @@ account.openapi(accountRoutes.overview, async c => {
     c.header('Cache-Control', 'private, no-store');
     return buildContextJson(c, await getBoundGameOverview(c, c.req.query()));
 });
-account.openapi(accountRoutes.checkIn, async c => buildContextJson(c, await getBoundGames(c, true)));
+account.openapi(accountRoutes.checkIn, async c => {
+    c.header('Cache-Control', 'private, no-store');
+    if (!(c.req.header('content-type') ?? '').toLowerCase().includes('application/json') && (await c.req.text()).length) return buildErrorContextJson(c, 'JSON content type required', null, 415);
+    const input = await c.req.json().catch(() => undefined);
+    return buildContextJson(c, await getBoundGames(c, true, input?.roles));
+});
 export default account;

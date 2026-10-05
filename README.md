@@ -265,3 +265,36 @@ npx prisma generate
 
 自动化测试通过 mock 与 Node 内存 SQLite 验证注册、登录、Post 绑定和密码重置；
 不代表真实 Cloudflare D1/KV 或第三方平台验证。测试不会发送真实验证码或执行账号签到。
+
+### 森空岛签到结果与故障诊断
+
+`POST /game/hypergryph/account/check-in` 无 body 时对所有已绑定角色签到；传入
+`{ "roles": [{ "appCode": "arknights", "uid": "角色 UID", "gameId": "区服 ID" }] }`
+可只签到指定角色或重试失败角色。选择器最多 100 项，整批校验角色归属后才调用上游，
+昵称及区服显示名取自后端绑定列表。该接口返回 `Cache-Control: private, no-store`。
+
+响应保留旧 `checkInResults` / `errorResults`，新增 `results`（角色、状态、奖励、错误类型、
+是否可重试）、`summary`、`requestId`、`completedAt`（Unix 秒）和 `durationMs`。
+状态为 `success`、`already_checked_in`、`failed`；只要有失败角色就返回 207，
+包括全失败，客户端应根据逐角色状态判断。奖励明细缺失不撤销上游 code=0 的成功确认，
+未知名称/数量为 null，`rewardsComplete=false`；0 是有效数量。
+
+方舟 POST 签名及请求体为 uid/gameId；终末地 POST 不传 body，签名使用空字符串，
+以 `sk-game-role: 3_{roleId}_{serverId}` 指定角色。官方 HTTP 401/code 10003 且返回
+有效 timestamp 时，用发送时间减官方时间计算时差，重新签名重试一次（两个游戏均覆盖测试）。
+校正后仍失败或官方时间字段不可用时返回可重试的 `clock_skew`，不提示重新登录。
+网络/超时不会自动重发 POST；前端说明结果可能已生效，用户可手动重试确认。
+“今日已签到”等明确提示单独归类；不能只因 code=10001 就认为已签到，它也可能代表其他错误。
+
+角色按 appCode/uid/gameId 去重，最多 3 个并发请求；单次上游请求 12 秒，批次经过
+40 秒后不再启动新角色请求，已发出的请求按各自超时结束。该去重不提供跨 Worker 的互斥锁，
+最终重复领取由官方接口处理。日志 `skland.check_in` 仅含请求编号、耗时、统计、游戏及错误码，
+不记录 cred/token、UID、昵称或原始上游异常。该请求编号可与页面“诊断信息”对应。
+
+2026-10-05 核对依据：
+- [官方终末地签到页面](https://game.skland.com/endfield/sign-in)及其
+  [官方 API/奖励 codec](https://assets.skland.com/_static_assets/game-tools/dist-BZImVwlH.js)：两游戏签到路径、奖励数组和资源映射。
+- [CN-Grace/QinglongScripts](https://github.com/CN-Grace/QinglongScripts/blob/main/skyland.py)：终末地空 body 与角色 Header，方舟 body，奖励差异。
+- [xydesu/endfield-assistant](https://github.com/xydesu/endfield-assistant/blob/main/utils/attendance.js)：重复签到可能通过 HTTP 403 返回的处理案例。
+
+协议测试使用合成响应，不代表真实账号已领取奖励。没有新增数据库迁移、定时签到或凭证存储。

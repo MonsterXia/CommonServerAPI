@@ -90,6 +90,19 @@ export const checkInResult = z
     .object({
         checkInResults: z.array(z.string()),
         errorResults: z.array(gameAccount.extend({ error: z.string() })),
+        requestId: z.string().uuid().optional(),
+        completedAt: z.number().int().nonnegative().optional().describe('Unix seconds'),
+        durationMs: z.number().nonnegative().optional(),
+        summary: z.object({ total: z.number().int().nonnegative(), success: z.number().int().nonnegative(), alreadyCheckedIn: z.number().int().nonnegative(), failed: z.number().int().nonnegative() }).optional(),
+        results: z.array(z.object({
+            account: gameAccount,
+            status: z.enum(['success', 'already_checked_in', 'failed']),
+            rewards: z.array(z.object({ id: z.string().nullable(), name: z.string().nullable(), count: z.number().nonnegative().nullable(), type: z.string().nullable() })),
+            rewardsComplete: z.boolean(),
+            errorCode: z.enum(['clock_skew', 'timeout', 'network_error', 'auth_expired', 'rate_limited', 'upstream_error', 'invalid_response', 'unsupported_game']).nullable(),
+            retryable: z.boolean(),
+            upstreamCode: z.number().nullable(),
+        })).optional(),
     })
     .openapi('CheckInResult');
 const nullableNumber = z.number().nullable();

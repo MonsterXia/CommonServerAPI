@@ -200,6 +200,7 @@ describe('OpenAPI request boundary', () => {
             message: 'Partial result',
             httpStatus: 207,
             data: {
+                requestId: '0c9c7c31-f07a-4049-a814-e96b3048b44f', completedAt: 1, durationMs: 10, results: [], summary: {total:1,success:0,alreadyCheckedIn:0,failed:1},
                 checkInResults: [],
                 errorResults: [
                     {
@@ -217,6 +218,20 @@ describe('OpenAPI request boundary', () => {
         });
         expect(response.status).toBe(207);
         expect(envelope(checkInResult, 207).safeParse(await response.json()).success).toBe(true);
-        expect(getBoundGames).toHaveBeenCalledWith(expect.anything(), true);
+        expect(getBoundGames).toHaveBeenCalledWith(expect.anything(), true, undefined);
     });
+    it.each([
+        ['application/json', '{'],
+        ['application/json', 'null'],
+        ['application/json', '{"roles":[]}'],
+        ['application/json', '{"roles":[{"appCode":"endfield","uid":"x"}]}'],
+        ['text/plain', '{"roles":[]}'],
+    ])('rejects invalid check-in selection without signing all roles: %s %s', async (contentType, body) => {
+        vi.mocked(getCurrentUser).mockResolvedValue({ username: 'test-user' });
+        vi.mocked(getBoundGames).mockClear();
+        const response = await router.request('/game/hypergryph/account/check-in', {method:'POST',headers:{'Content-Type':contentType},body});
+        expect(response.status).toBe(contentType === 'text/plain' ? 415 : 400);
+        expect(getBoundGames).not.toHaveBeenCalled();
+    });
+
 });

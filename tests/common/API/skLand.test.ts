@@ -9,15 +9,15 @@ const cred = { cred: 'test', token: 'secret' };
 const account = { appCode: 'arknights', nickName: 'Doctor', uid: '1', gameId: '1' };
 beforeEach(() => { vi.resetAllMocks(); sign.mockResolvedValue({ timeStamp: '100' }); });
 it('reports upstream business errors as failures, not successful sign-ins', async () => {
-    post.mockResolvedValue({ code: 1, message: 'Already checked in', data: {} });
+    post.mockResolvedValue({ code: 1, message: 'Invalid role', data: {} });
     const response = await skLandCheckInCore(cred, [account]);
     expect(response.httpStatus).toBe(207);
-    expect(response.data.checkInResults).toEqual([]);
-    expect(response.data.errorResults[0].error).toBe('Already checked in');
+    expect(response.data!.checkInResults).toEqual([]);
+    expect(response.data!.errorResults[0].error).toBe('SKLand check-in is unavailable; try again later');
 });
 it('limits timestamp correction to one retry', async () => {
     post.mockRejectedValue({ isAxiosError: true, response: { status: 401, data: { code: 10003, timestamp: '90', message: 'Wrong time' } } });
-    await expect(fetchSkLandCheckInAPI(cred, account)).rejects.toThrow('Wrong time');
+    await expect(fetchSkLandCheckInAPI(cred, account)).rejects.toThrow('SKLand server time could not be synchronized');
     expect(post).toHaveBeenCalledTimes(2);
 });
 it('loads every Endfield role and tolerates absent default roles', async () => {

@@ -59,11 +59,14 @@ async function getBoundGameContext(c: Context) {
     if (!games.success || !games.data) return result(false, 'Could not load game accounts', null, null, 502);
     return result(true, 'Game context loaded', { cred: cred.data, games: games.data }, null, 200);
 }
-export async function getBoundGames(c: Context, checkIn = false) {
+export async function getBoundGames(c: Context, checkIn = false, roles?: { appCode: string; uid: string; gameId: string }[]) {
     const context = await getBoundGameContext(c);
     if (!context.success || !context.data) return result(false, context.message, null, context.error, context.httpStatus);
     if (!checkIn) return result(true, 'Get game accounts successfully', context.data.games, null, 200);
-    return skLandCheckInCore(context.data.cred, context.data.games);
+    const { cred, games: ownedGames } = context.data;
+    const games = roles ? roles.map(role => ownedGames.find(game => game.appCode === role.appCode && game.uid === role.uid && game.gameId === role.gameId)) : ownedGames;
+    if (games.some(game => !game)) return result(false, 'Game account is not linked to this user', null, null, 403);
+    return skLandCheckInCore(cred, games.filter(game => game !== undefined));
 }
 export async function getBoundGameOverview(c: Context, query: Record<string, string>) {
     const { appCode, uid, gameId } = query;

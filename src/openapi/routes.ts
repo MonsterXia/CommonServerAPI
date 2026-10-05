@@ -321,6 +321,8 @@ export const accountRoutes = {
         path: '/check-in',
         operationId: 'checkInLinkedGames',
         summary: 'Manually check in linked roles',
+        request: { body: { required: false, content: json(z.object({ roles: z.array(z.object({ appCode: z.enum(['arknights', 'endfield']), uid: z.string().regex(/^[\w-]{1,128}$/), gameId: z.string().regex(/^[\w-]{1,128}$/) })).min(1).max(100).optional() })) } },
+        description: 'An absent body checks all linked roles. Optional roles selects owned roles for individual check-in or retry; all ownership checks precede writes. Already checked in is a successful outcome. HTTP 207 contains per-role failures, including an all-failed batch.',
         data: s.checkInResult,
         statuses: [200, 207],
     }),
