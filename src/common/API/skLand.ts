@@ -9,12 +9,26 @@ import type { Cred } from '@/model/game/hypergraph/skIsland/user';
 const gatewayManagerInstance = getGatewayManager();
 
 export async function fetchSkLandProfileAPI(cred: Cred, account: SKLandCheckInRequestPayload): Promise<unknown> {
+    return fetchSkLandData(cred, account);
+}
+
+export async function fetchSkLandWarEchoesAPI(cred: Cred, account: SKLandCheckInRequestPayload): Promise<unknown> {
+    if (account.appCode !== 'endfield') throw new Error('Unsupported game');
+    return fetchSkLandData(cred, account, sklandEndpoints.endfieldWarEchoes);
+}
+
+export async function fetchSkLandMonolithAPI(cred: Cred, account: SKLandCheckInRequestPayload): Promise<unknown> {
+    if (account.appCode !== 'endfield') throw new Error('Unsupported game');
+    return fetchSkLandData(cred, account, sklandEndpoints.endfieldMonolith);
+}
+
+async function fetchSkLandData(cred: Cred, account: SKLandCheckInRequestPayload, endpoint?: string): Promise<unknown> {
     const endfield = account.appCode === 'endfield';
     if (!endfield && account.appCode !== 'arknights') throw new Error('Unsupported game');
     const query = new URLSearchParams(endfield
         ? { roleId: account.uid, serverId: account.gameId, userId: cred.userId }
         : { uid: account.uid });
-    const url = gatewayManagerInstance.buildSKLandURL(endfield ? sklandEndpoints.endfieldProfile : sklandEndpoints.arknightsProfile);
+    const url = gatewayManagerInstance.buildSKLandURL(endpoint ?? (endfield ? sklandEndpoints.endfieldProfile : sklandEndpoints.arknightsProfile));
     let delay: number | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
         const headers = await getSkLandSignHeader(cred, url, query, delay);

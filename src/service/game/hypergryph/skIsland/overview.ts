@@ -1,3 +1,6 @@
+import { normalizeGloryRoad } from './gloryRoad';
+import { normalizeRegionalDevelopment, normalizeMonolith } from './endfieldDevelopment';
+import { normalizeWarEchoes } from './warEchoes';
 import type { GameOverview, OverviewMetric } from '@/model/game/hypergraph/skIsland/overview';
 import type { SKLandGameAccount } from '@/model/game/hypergraph/skIsland/user';
 import { artworkUrl } from './artwork';
@@ -192,6 +195,7 @@ export function normalizeGameOverview(account: SKLandGameAccount, raw: unknown, 
         },
         metrics: [...metrics, ...extra.metrics],
         sections: extra.sections,
+        ...(endfield ? { gloryRoad: normalizeGloryRoad(detail), warEchoes: normalizeWarEchoes(detail), regionalDevelopment: normalizeRegionalDevelopment(detail), monolith: normalizeMonolith(detail) } : {}),
         operators,
     };
 }

@@ -7,10 +7,12 @@ vi.mock('@/service/game/hypergryph/loginService', () => ({ fetchHypergryphTokenB
 vi.mock('@/service/game/hypergryph/skIsland/loginService', () => ({ fetchSkLandCred: mocks.cred, fetchSkLandGameAccounts: mocks.games }));
 vi.mock('@/service/game/hypergryph/skIsland/checkIn', () => ({ skLandCheckInCore: mocks.checkIn }));
 const profile = vi.hoisted(() => vi.fn());
-vi.mock('@/common/API/skLand', () => ({ fetchSkLandProfileAPI: profile }));
+const warEchoes = vi.hoisted(() => vi.fn());
+const monolith = vi.hoisted(() => vi.fn());
+vi.mock('@/common/API/skLand', () => ({ fetchSkLandProfileAPI: profile, fetchSkLandWarEchoesAPI: warEchoes, fetchSkLandMonolithAPI: monolith }));
 const c = { get: () => ({ username: 'alice' }) } as unknown as Context;
 beforeEach(() => {
-    vi.resetAllMocks(); mocks.user.mockResolvedValue({ id: 1 }); mocks.find.mockResolvedValue(null);
+    vi.resetAllMocks(); monolith.mockResolvedValue(undefined); warEchoes.mockResolvedValue(undefined); mocks.user.mockResolvedValue({ id: 1 }); mocks.find.mockResolvedValue(null);
     mocks.password.mockResolvedValue({ success: true, data: 'secret-token' }); mocks.sms.mockResolvedValue({ success: true, data: 'secret-token' });
     mocks.create.mockResolvedValue({ phone: '13800000000', userId: 1 });
 });
@@ -70,4 +72,41 @@ describe('linked Hypergryph accounts', () => {
         expect((await getBoundGameOverview(c, { appCode: 'unknown', uid: '1', gameId: '1' })).httpStatus).toBe(400);
         expect(mocks.oauth).not.toHaveBeenCalled();
     });
+});
+
+it('retains the brief overview when optional War Echoes fails and enriches it when available', async () => {
+  mocks.find.mockResolvedValue({ token: 'server-secret' });
+  mocks.oauth.mockResolvedValue({ success: true, data: 'oauth' });
+  mocks.cred.mockResolvedValue({ success: true, data: { cred: 'secret', token: 'secret', userId: '1' } });
+  const role = { appCode: 'endfield', uid: '11', gameId: '2', nickName: 'Endministrator' };
+  mocks.games.mockResolvedValue({ success: true, data: [role] });
+  profile.mockResolvedValue({ detail: { base: { level: 60 }, warEchoes: { seasons: [{id:'s',name:'Brief',weeks:[]}] } } });
+  warEchoes.mockRejectedValue(new Error('secret upstream failure'));
+  const partial = await getBoundGameOverview(c, role);
+  expect(partial.httpStatus).toBe(200);
+  expect(partial.data?.warEchoes?.detailAvailable).toBe(false);
+  warEchoes.mockResolvedValue({ warEchoes: { seasons: [{id:'s',name:'Full',weeks:[]}], achieves:[] } });
+  const full = await getBoundGameOverview(c, role);
+  expect(full.data?.warEchoes?.seasons[0].name).toBe('Full');
+  expect(full.data?.warEchoes?.honors).toEqual([]);
+  expect(JSON.stringify(full)).not.toContain('secret');
+  warEchoes.mockClear();
+  expect((await getBoundGameOverview(c, {...role,uid:'unauthorized'})).httpStatus).toBe(403);
+  expect(warEchoes).not.toHaveBeenCalled();
+});
+
+it('keeps monolith brief after failure, returns all themes and never queries an unowned role', async () => {
+  mocks.find.mockResolvedValue({token:'secret'}); mocks.oauth.mockResolvedValue({success:true,data:'oauth'});
+  mocks.cred.mockResolvedValue({success:true,data:{cred:'secret',token:'secret',userId:'owner'}});
+  const role={appCode:'endfield',uid:'role',gameId:'server',nickName:'Synthetic'};
+  mocks.games.mockResolvedValue({success:true,data:[role]});
+  profile.mockResolvedValue({detail:{base:{level:1},indieHard:{indieHardGroups:[{id:'brief',name:'Brief'}]}}});
+  monolith.mockRejectedValue(new Error('secret failure'));
+  const partial=await getBoundGameOverview(c,role);
+  expect(partial.httpStatus).toBe(200);expect(partial.data?.monolith).toMatchObject({detailAvailable:false,themes:[{id:'brief'}]});
+  monolith.mockResolvedValue({indieHard:{indieHardGroups:[{id:'brief',name:'Full'},{id:'history'}]}});
+  const full=await getBoundGameOverview(c,role);
+  expect(full.data?.monolith?.detailAvailable).toBe(true);expect(full.data?.monolith?.themes.map(t=>t.id)).toEqual(['brief','history']);
+  expect(JSON.stringify(full)).not.toContain('secret');
+  monolith.mockClear();expect((await getBoundGameOverview(c,{...role,uid:'unowned'})).httpStatus).toBe(403);expect(monolith).not.toHaveBeenCalled();
 });

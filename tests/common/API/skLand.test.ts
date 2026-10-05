@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { fetchSkLandCheckInAPI, fetchSkLandProfileAPI } from '@/common/API/skLand';
+import { fetchSkLandCheckInAPI, fetchSkLandProfileAPI, fetchSkLandWarEchoesAPI, fetchSkLandMonolithAPI } from '@/common/API/skLand';
 import { fetchSkLandGameAccounts } from '@/service/game/hypergryph/skIsland/loginService';
 import { skLandCheckInCore } from '@/service/game/hypergryph/skIsland/checkIn';
 const { post, get, sign } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn(), sign: vi.fn() }));
@@ -74,4 +74,29 @@ it('rejects profile business errors and bounds timestamp retries', async () => {
     await expect(fetchSkLandProfileAPI({ ...cred, userId: '1' }, account)).rejects.toBeDefined();
     expect(get).toHaveBeenCalledTimes(2);
     expect(sign.mock.calls.at(-1)?.[3]).toBe(10);
+});
+
+it('signs the Endfield War Echoes GET using the authorized role and server', async () => {
+  get.mockResolvedValue({ code: 0, data: { warEchoes: { seasons: [] } } });
+  const credentials = { ...cred, userId: 'owner' };
+  const role = { ...account, appCode: 'endfield', uid: 'r', gameId: 's' };
+  await fetchSkLandWarEchoesAPI(credentials, role);
+  expect(get.mock.calls[0][0]).toBe('https://example.com/web/v1/game/endfield/card/war-echoes?roleId=r&serverId=s&userId=owner');
+  expect(get.mock.calls[0][2].headers['sk-game-role']).toBe('3_r_s');
+  expect(String(sign.mock.calls[0][2])).toBe('roleId=r&serverId=s&userId=owner');
+});
+
+it('signs indie-hard with the bound role and bounds timestamp recovery', async () => {
+  get.mockResolvedValueOnce({ code: 0, data: { indieHard: { indieHardGroups: [] } } });
+  const role = { ...account, appCode: 'endfield', uid: 'r', gameId: 's' };
+  const credentials = { ...cred, userId: 'owner' };
+  await fetchSkLandMonolithAPI(credentials, role);
+  expect(get.mock.calls[0][0]).toBe('https://example.com/web/v1/game/endfield/card/indie-hard?roleId=r&serverId=s&userId=owner');
+  expect(get.mock.calls[0][2]).toMatchObject({ headers: { 'sk-game-role': '3_r_s' }, timeout: 20000 });
+  expect(String(sign.mock.calls[0][2])).toBe('roleId=r&serverId=s&userId=owner');
+  get.mockClear();
+  get.mockRejectedValue({ isAxiosError: true, response: { status: 401, data: { code: 10003, timestamp: '90' } } });
+  await expect(fetchSkLandMonolithAPI(credentials, role)).rejects.toBeDefined();
+  expect(get).toHaveBeenCalledTimes(2);
+  await expect(fetchSkLandMonolithAPI(credentials, account)).rejects.toThrow('Unsupported game');
 });

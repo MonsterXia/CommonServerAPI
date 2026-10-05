@@ -106,8 +106,107 @@ export const checkInResult = z
     })
     .openapi('CheckInResult');
 const nullableNumber = z.number().nullable();
+const warMember = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  level: z.number().nonnegative().nullable(),
+  potential: z.number().nonnegative().nullable(),
+  phase: z.number().nonnegative().nullable(),
+  rarity: z.string().nullable(),
+  element: z.string().nullable(),
+})
+
+const warEnemy = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  level: z.number().nonnegative().nullable(),
+  description: z.string().nullable(),
+  ability: z.string().nullable(),
+  artworkUrl: z.string().nullable(),
+})
+
+const warRecord = z.object({
+  recordedAt: z.number().nonnegative().nullable(),
+  durationSeconds: z.number().nonnegative().nullable(),
+  team: z.array(warMember).nullable(),
+})
+
+const warDifficulty = z.object({
+  id: z.string(),
+  difficulty: z.enum(['normal', 'hard', 'cruel']),
+  name: z.string().nullable(),
+  isPassed: z.boolean().nullable(),
+  firstPassAt: z.number().nonnegative().nullable(),
+  plusTask: z.boolean().nullable(),
+  description: z.string().nullable(),
+  feature: z.string().nullable(),
+  target: z.string().nullable(),
+  recommendLevel: z.number().nonnegative().nullable(),
+  enemies: z.array(warEnemy).nullable(),
+  record: warRecord.nullable(),
+})
+
+const warStage = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  stars: z.number().nonnegative().nullable(),
+  plusTask: z.boolean().nullable(),
+  difficulties: z.array(warDifficulty).nullable(),
+})
+
+const warWeek = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  startAt: z.number().nonnegative().nullable(),
+  endAt: z.number().nonnegative().nullable(),
+  stars: z.number().nonnegative().nullable(),
+  rating: z.string().nullable(),
+  stages: z.array(warStage).nullable(),
+})
+
+const warSeason = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  artworkUrl: z.string().nullable(),
+  startAt: z.number().nonnegative().nullable(),
+  endAt: z.number().nonnegative().nullable(),
+  stars: z.number().nonnegative().nullable(),
+  rating: z.string().nullable(),
+  weeks: z.array(warWeek).nullable(),
+})
+
+const warHonor = z.object({
+  acquired: z.boolean().nullable(),
+  name: z.string().nullable(),
+  stars: z.number().nonnegative().nullable(),
+  acquiredAt: z.number().nonnegative().nullable(),
+})
+
+const warEchoes = z.object({
+  detailAvailable: z.boolean(),
+  seasons: z.array(warSeason),
+  honors: z.array(warHonor).nullable(),
+})
+
+const developmentOfficer = z.object({ id: z.string().nullable(), name: z.string().nullable(), avatarUrl: z.string().nullable() })
+const settlement = z.object({ id: z.string(), name: z.string().nullable(), level: z.number().nullable(), unlocked: z.boolean().nullable(), experience: z.number().nullable(), experienceMax: z.number().nullable(), isMaxLevel: z.boolean().nullable(), money: z.number().nullable(), moneyMax: z.number().nullable(), officer: developmentOfficer.nullable() })
+const developmentRegion = z.object({ id: z.string(), name: z.string().nullable(), level: z.number().nullable(), money: z.number().nullable(), moneyMax: z.number().nullable(), settlements: z.array(settlement).nullable() })
+const regionalDevelopment = z.object({ regions: z.array(developmentRegion) })
+const monolithMedal = z.object({ name: z.string().nullable(), acquired: z.boolean().nullable(), plated: z.boolean().nullable(), level: z.number().nullable(), artworkUrl: z.string().nullable(), acquiredAt: z.number().nullable() })
+const monolithStage = z.object({ id: z.string(), name: z.string().nullable(), normal: warDifficulty.nullable(), hard: warDifficulty.nullable() })
+const monolithTheme = z.object({ id: z.string(), name: z.string().nullable(), artworkUrl: z.string().nullable(), activityName: z.string().nullable(), isInActivity: z.boolean().nullable(), startAt: z.number().nullable(), endAt: z.number().nullable(), medal: monolithMedal.nullable(), stages: z.array(monolithStage).nullable() })
+const monolith = z.object({ detailAvailable: z.boolean(), currentThemeId: z.string().nullable(), themes: z.array(monolithTheme) })
+
+const gloryMedal = z.object({ id: z.string(), name: z.string().nullable(), category: z.string().nullable(), level: z.number().nullable(), plated: z.boolean().nullable(), canCertify: z.boolean().nullable(), acquiredAt: z.number().nullable().describe('Acquisition Unix timestamp in seconds.'), artworkUrl: z.string().nullable() })
+const gloryRoad = z.object({ count: z.number().nullable(), tiers: z.array(z.object({level: z.number(), count: z.number().nullable()})), display: z.array(z.object({slot: z.number().int().min(1).max(10), medalId: z.string().nullable()})).nullable(), medals: z.array(gloryMedal).nullable() })
+
 export const gameOverview = z
     .object({
+        gloryRoad: gloryRoad.optional(),
+        warEchoes: warEchoes.optional(),
+        regionalDevelopment: regionalDevelopment.optional(),
+        monolith: monolith.optional(),
         account: gameAccount,
         fetchedAt: z.number().describe('Unix timestamp in seconds when fetched.'),
         calculatedAt: z.number().optional().describe('Upstream currentTs used for time-based resource calculations, in Unix seconds.'),
@@ -157,6 +256,10 @@ export const gameOverview = z
                 }).optional(),
                 nameKey: z.string().optional().describe('Stable client translation key for a known facility type.'),
                 level: nullableNumber,
+                maxLevel: z.number().nonnegative().optional().describe('Verified Endfield room level cap: control 5, other supported rooms 3.'),
+                staff: z.array(z.object({
+                    id: z.string(), name: z.string().nullable(), avatarUrl: z.string().url().optional(),
+                })).nullable().optional().describe('Actual Endfield room assignments from spaceShip.rooms[].chars. Names matched by charId against detail.chars; public official avatar URL only. Null means unavailable, [] means unstaffed. Older responses may omit this field.'),
                 status: z.enum(['idle', 'working', 'complete', 'locked', 'unknown']),
                 current: nullableNumber,
                 total: nullableNumber,

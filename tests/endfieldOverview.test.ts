@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeEndfieldDetails } from '@/service/game/hypergryph/skIsland/endfieldOverview';
+import { gameOverview } from '@/openapi/schemas';
+import { normalizeGameOverview } from '@/service/game/hypergryph/skIsland/overview';
 
 describe('Endfield additional overview fields', () => {
     it('uses the official room types, order, capacity and distinct manufacture labels', () => {
@@ -18,6 +20,86 @@ describe('Endfield additional overview fields', () => {
         expect(rooms.map(room => room.current)).toEqual([null, 1, 0, 1, 0]);
         expect(rooms.every(room => room.total === 3 && room.status === 'unknown' && room.completeAt === null)).toBe(true);
         expect(rooms[2].level).toBe(0);
+        expect(rooms.map(room => room.maxLevel)).toEqual([5, 3, 3, 3, 3]);
+        expect(rooms[0].staff).toBeNull();
+        expect(rooms[2].staff).toEqual([]);
+    });
+
+    it('returns actual room assignments, matches names by ID and selects only official public avatars', () => {
+        const avatar = 'https://bbs.hycdn.cn/fixture/assigned.png';
+        const fallback = 'https://assets.skland.com/fixture/operator.png';
+        const raw = { detail: {
+            base: { level: 1 },
+            chars: [
+                { id: 'owned-b', charData: { id: 'b', name: 'Beta', avatarSqUrl: fallback } },
+                { charData: { id: 'a', name: 'Alpha', avatarSqUrl: fallback } },
+                { id: 'unassigned', charData: { name: 'Not assigned' } },
+            ],
+            spaceShip: { rooms: [
+                { id: 'control', type: 0, level: '0', chars: [
+                    { charId: 'a', avatarUrl: avatar, privateField: 'secret' },
+                    { charId: 'b', avatarUrl: 'https://example.com/untrusted.png' },
+                    { charId: 'unknown', avatarUrl: 'https://user:pass@bbs.hycdn.cn/private.png' },
+                    null, 'invalid', [],
+                ] },
+                { id: 'empty', type: 1, chars: [] },
+                { id: 'missing', type: 2 },
+            ] },
+        } };
+        const before = JSON.stringify(raw);
+        const data = normalizeGameOverview({ appCode: 'endfield', uid: 'fixture', gameId: '2', nickName: 'Fixture' }, raw);
+        const rooms = data.sections!.find(section => section.key === 'endfieldSpaceship')!.items;
+        expect(rooms[0]).toMatchObject({ level: 0, maxLevel: 5, current: 3, total: 3, staff: [
+            { id: 'a', name: 'Alpha', avatarUrl: avatar },
+            { id: 'b', name: 'Beta', avatarUrl: fallback },
+            { id: 'unknown', name: null },
+        ] });
+        expect(rooms[0].staff![2]).not.toHaveProperty('avatarUrl');
+        expect(rooms[1]).toMatchObject({ current: 0, staff: [] });
+        expect(rooms[2]).toMatchObject({ current: null, staff: null });
+        expect(JSON.stringify(rooms)).not.toMatch(/Not assigned|secret|untrusted|private/);
+        expect(JSON.stringify(raw)).toBe(before);
+        const parsed = gameOverview.parse(data);
+        expect(parsed.sections!.find(section => section.key === 'endfieldSpaceship')!.items).toEqual(rooms);
+    });
+
+    it('matches room assignments by both definition and owned-record IDs without list-order inference', () => {
+        const result = normalizeEndfieldDetails({
+            chars: [
+                { id: 'owned-beta', charData: { id: 'char-beta', name: 'Beta' } },
+                { id: 'owned-alpha', charData: { id: 'char-alpha', name: 'Alpha' } },
+            ],
+            spaceShip: { rooms: [{ type: 0, chars: [
+                { charId: 'char-alpha' }, { charId: 'owned-beta' }, { charId: 'missing' },
+            ] }] },
+        });
+        expect(result.sections[0].items[0].staff?.map(member => member.name)).toEqual(['Alpha', 'Beta', null]);
+    });
+
+    it('resolves differing room IDs by exact unique official avatar metadata, never by position or filename', () => {
+        const alpha = 'https://bbs.hycdn.cn/fixture/a.png';
+        const beta = 'https://assets.skland.com/fixture/b.png';
+        const shared = 'https://bbs.hycdn.cn/fixture/shared.png';
+        const result = normalizeEndfieldDetails({
+            chars: [
+                { id: 'record-beta', charData: { id: 'definition-beta', name: 'Beta', avatarSqUrl: beta, avatarRtUrl: beta } },
+                { id: 'record-alpha', charData: { id: 'definition-alpha', name: 'Alpha', avatarSqUrl: alpha, avatarRtUrl: shared } },
+                { id: 'record-gamma', charData: { name: 'Gamma', avatarSqUrl: shared } },
+                { id: 'record-invalid', charData: { name: 'Untrusted', avatarSqUrl: 'https://example.com/a.png' } },
+            ],
+            spaceShip: { rooms: [{ type: 0, chars: [
+                { charId: 'chr_alpha', avatarUrl: alpha },
+                { charId: 'chr_beta', avatarUrl: beta },
+                { charId: 'chr_shared', avatarUrl: shared },
+                { charId: 'chr_unknown', avatarUrl: 'https://assets.skland.com/fixture/a.png' },
+                { charId: 'chr_invalid', avatarUrl: 'https://example.com/a.png' },
+                { charId: 'definition-alpha', avatarUrl: shared },
+            ] }] },
+        });
+        const staff = result.sections[0].items[0].staff!;
+        expect(staff.map(member => member.name)).toEqual(['Alpha', 'Beta', null, null, null, 'Alpha']);
+        expect(staff[0].id).toBe('chr_alpha');
+        expect(staff[1].avatarUrl).toBe(beta);
     });
 
     it('keeps domain dispatch tickets separate from settlement stock and avoids inferred production', () => {

@@ -11,6 +11,8 @@ export const sklandEndpoints = {
     credValidation: 'api/v1/user/check',
     getGameAccounts: 'api/v1/game/player/binding',
     arknightsProfile: 'api/v1/game/player/info',
+    endfieldMonolith: 'web/v1/game/endfield/card/indie-hard',
+    endfieldWarEchoes: 'web/v1/game/endfield/card/war-echoes',
     endfieldProfile: 'web/v1/game/endfield/card/detail',
     arknightsCheckIn: 'api/v1/game/attendance',
     endfieldCheckIn: 'web/v1/game/endfield/attendance'

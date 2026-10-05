@@ -4,7 +4,7 @@ import { buildStandardServerResponse as result } from '@/util/hono';
 import { fetchHypergryphTokenByPassword, fetchHypergryphTokenByPhoneCode, fetchHypergryphOauthToken } from './loginService';
 import { fetchSkLandCred, fetchSkLandGameAccounts } from './skIsland/loginService';
 import { skLandCheckInCore } from './skIsland/checkIn';
-import { fetchSkLandProfileAPI } from '@/common/API/skLand';
+import { fetchSkLandProfileAPI, fetchSkLandWarEchoesAPI, fetchSkLandMonolithAPI } from '@/common/API/skLand';
 import { normalizeGameOverview } from './skIsland/overview';
 
 const publicAccount = { phone: true, userId: true, createdAt: true, updatedAt: true } as const;
@@ -77,7 +77,15 @@ export async function getBoundGameOverview(c: Context, query: Record<string, str
     const account = context.data.games.find(game => game.appCode === appCode && String(game.uid) === uid && String(game.gameId) === gameId);
     if (!account) return result(false, 'Game account is not linked to this user', null, null, 403);
     try {
-        const raw = await fetchSkLandProfileAPI(context.data.cred, account);
+        const [profile, extra, monolith] = await Promise.all([
+            fetchSkLandProfileAPI(context.data.cred, account),
+            appCode === 'endfield' ? fetchSkLandWarEchoesAPI(context.data.cred, account).catch(() => undefined) : undefined,
+            appCode === 'endfield' ? fetchSkLandMonolithAPI(context.data.cred, account).catch(() => undefined) : undefined,
+        ]);
+        // Optional mode data must not take down a valid account overview.
+        const raw = profile && typeof profile === 'object' && 'detail' in profile && profile.detail && typeof profile.detail === 'object'
+            ? { ...profile, detail: { ...profile.detail, monolithFull: monolith && typeof monolith === 'object' && 'indieHard' in monolith ? monolith.indieHard : undefined, warEchoesFull: extra && typeof extra === 'object' && 'warEchoes' in extra ? extra.warEchoes : undefined } }
+            : profile;
         return result(true, 'Game overview loaded', normalizeGameOverview(account, raw), null, 200);
     } catch {
         return result(false, 'Could not load game overview; refresh or update account login', null, null, 502);

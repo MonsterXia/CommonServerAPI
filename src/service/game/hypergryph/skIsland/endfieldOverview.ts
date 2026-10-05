@@ -44,6 +44,23 @@ export function normalizeEndfieldDetails(raw: unknown): { metrics: OverviewMetri
     const sections: OverviewSection[] = [];
     const ship = rows(obj(detail.spaceShip).rooms);
     if (ship) {
+        // The owned-record ID can differ from the character definition referenced by rooms.
+        // Keep both namespaces; prefer an exact definition ID over an owned-record alias.
+        const characters = new Map<string, Obj>();
+        const definitions = new Map<string, Obj>();
+        const avatarCharacters = new Map<string, Obj | null>();
+        for (const value of rows(detail.chars) ?? []) {
+            const char = obj(value), data = obj(char.charData);
+            const id = text(char.id), definitionId = text(data.id);
+            if (id) characters.set(id, data);
+            if (definitionId) definitions.set(definitionId, data);
+            // Some room IDs do not share either roster ID namespace. The room and
+            // roster still provide the exact same official resource. Only join a
+            // resource belonging to one record; shared images remain ambiguous.
+            for (const avatar of new Set([artworkUrl(data.avatarSqUrl), artworkUrl(data.avatarRtUrl)])) {
+                if (avatar) avatarCharacters.set(avatar, avatarCharacters.has(avatar) ? null : data);
+            }
+        }
         const occurrences = new Map<number, number>();
         const items = ship.map(obj).filter(room => roomOrder.includes(num(room.type) ?? -1))
             .sort((a, b) => roomOrder.indexOf(num(a.type)!) - roomOrder.indexOf(num(b.type)!))
@@ -55,10 +72,19 @@ export function normalizeEndfieldDetails(raw: unknown): { metrics: OverviewMetri
                     : type === 5 ? 'endfieldReception'
                     : type === 1 ? (ordinal <= 2 ? `endfieldManufacture${ordinal}` : 'endfieldManufacture')
                     : ordinal === 1 ? 'endfieldPlant1' : 'endfieldPlant';
-                const staff = rows(room.chars);
+                const id = text(room.id) ?? `room-${index}`;
+                const staff = rows(room.chars)?.filter(value => value !== null && typeof value === 'object' && !Array.isArray(value))
+                    .map((value, staffIndex) => {
+                        const member = obj(value), charId = text(member.charId);
+                        const roomAvatar = artworkUrl(member.avatarUrl);
+                        const data = (charId ? definitions.get(charId) ?? characters.get(charId) : undefined)
+                            ?? (roomAvatar ? avatarCharacters.get(roomAvatar) : undefined);
+                        const avatarUrl = roomAvatar ?? artworkUrl(data?.avatarSqUrl) ?? artworkUrl(data?.avatarRtUrl);
+                        return { id: charId ?? `${id}:staff-${staffIndex}`, name: text(data?.name), ...(avatarUrl ? { avatarUrl } : {}) };
+                    }) ?? null;
                 return {
-                    ...item(text(room.id) ?? `room-${index}`, null, num(room.level), staff?.filter(value => value !== null && typeof value === 'object' && !Array.isArray(value)).length ?? null, 3),
-                    nameKey,
+                    ...item(id, null, num(room.level), staff?.length ?? null, 3),
+                    nameKey, maxLevel: type === 0 ? 5 : 3, staff,
                 };
             });
         sections.push({ key: 'endfieldSpaceship', items });
