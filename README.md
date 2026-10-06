@@ -1,300 +1,300 @@
 # CommonServerAPI
-Server hold at api.246801357.xyz
 
-## Swagger / OpenAPI
+基于 TypeScript、Hono 和 Cloudflare Workers 的后端 API，为 EasonWeb 等客户端提供用户账号、Post 管理员身份、鹰角账号绑定、森空岛游戏概览与手动签到能力。
 
-- [生产 Swagger UI](https://api.246801357.xyz/docs)
-- [生产 OpenAPI JSON](https://api.246801357.xyz/openapi.json)
-- 本地启动后访问同一服务的 `/docs` 或 `/openapi.json`。
+- [线上服务](https://api.246801357.xyz/)
+- [Swagger UI](https://api.246801357.xyz/docs)
+- [OpenAPI JSON](https://api.246801357.xyz/openapi.json)
 
-规范版本为 OpenAPI 3.0.3，覆盖所有 32 个已挂载接口：健康检查、普通用户、
-Post 管理员、鹰角绑定、鹰角协议和森空岛协议。原有路径及大小写（包括 `/skLand`、
-`/checkIn`）、Cookie 会话和响应封装保持兼容。未挂载的超管路由仍不对外开放。
+## 功能与技术栈
 
-Swagger 使用同源 API；先通过对应登录接口建立 HttpOnly Cookie，再执行需要鉴权的接口。
-`UserCookie` 为 `auth_token`，`PostAdminCookie` 为 `post_auth_token`；Post 绑定/解绑必须同时具备两者。
-浏览器不能通过 Swagger Authorize 手动设置 HttpOnly Cookie。UI 不持久保存授权信息，
-关闭外部规范校验服务和 URL 配置覆盖；UI 静态资源固定使用 CDN 上的 swagger-ui-dist 5.33.1。
-发送短信/邮件、注册、签到等 Try it out 操作会真实执行。
+| 模块 | 能力 |
+| --- | --- |
+| 普通用户 | 邮箱验证码、注册、登录 / 登出、当前用户、密码重置与旧会话失效 |
+| Post 管理员 | 独立注册验证与登录会话，可与普通用户建立可选的一对一绑定 |
+| 鹰角账号 | 短信 / 密码登录后绑定账号、刷新凭证、解绑与角色列表查询 |
+| 森空岛概览 | 明日方舟理智、基建与记录；终末地帝江号、探索、地区建设、光荣之路、战争回响和影拓丰碑等数据 |
+| 手动签到 | 全部或指定角色签到、逐角色结果、奖励与可重试错误信息 |
+| 接口文档 | OpenAPI 3.0.3、Swagger UI、Zod 请求校验与契约测试 |
 
-请求体声明为 `application/json`：缺失或错误字段返回统一 400 错误，存在 body 但媒体类型不支持时返回 415。
-鉴权在结构校验之前执行。响应沿用 `{ message, data, httpStatus }` 或
-`{ message, error, httpStatus }`；健康检查单独返回 `{ message }`。
-创建资源的 201、签到部分失败的 207、验证过期的 410 等均在规范中声明。
+运行时使用 Workers；数据库为 D1，通过 Prisma D1 adapter 访问；KV 保存验证码及待验证注册等临时数据，R2 提供对象存储封装，邮件使用 Resend / React Email，测试使用 Vitest。
+
+当前没有定时签到任务。Workflow 仅包含初始步骤，超管路由尚未挂载；终末地概览由统一账号接口提供，没有独立的角色技能 / 装备详情接口。
+
+## 快速开始
+
+### 1. 准备环境与依赖
+
+使用 Node.js 24 和 npm。当前锁文件中的 Prisma 支持 Node `^22.12` / `>=24` 等版本，Wrangler 要求 Node 22 及以上；选择 Node 24 也可避免旧版 Node 的 `node:sqlite` 开关问题。
+
+在仓库根目录执行：
 
 ```bash
-npm run openapi:export  # 导出 build/openapi.json，供导入工具或生成客户端
-npm test -- tests/openapi
+npm ci
+npx prisma generate
 ```
 
-导出文件是构建产物，不提交；路由声明才是规范来源。测试会验证 OpenAPI 规范与引用、
-实际挂载路由覆盖率、鉴权、请求校验及关键响应契约。新增路由时同步更新契约和覆盖测试。
+### 2. 配置本地变量
 
-## Run/Deployment
+在根目录创建 `.dev.vars`，填写自己的开发配置：
 
-### Run
+```dotenv
+JWT_SECRET="replace-with-a-long-random-development-secret"
+RESEND_API_KEY="replace-with-your-resend-api-key"
+```
+
+`JWT_SECRET` 用于会话签名和密码重置验证码哈希。邮件服务在首个请求时初始化，因此也需要提供 `RESEND_API_KEY`；实际发送邮件还需使用已在 Resend 验证的发件域名，发件地址配置见 [email.ts](src/common/config/email.ts)。
+
+本地秘密变量放在 `.dev.vars` 或 `.env` 中，两者选其一；存在 `.dev.vars` 时，Wrangler 不会把 `.env` 中的值加载到本地 Worker 的 `env`。这些文件已被 Git 忽略。详见 [Cloudflare 本地变量说明](https://developers.cloudflare.com/workers/local-development/environment-variables/)。
+
+### 3. 初始化本地数据库并启动
 
 ```bash
+npx wrangler d1 migrations apply common-server-db --local
 npm run dev
 ```
 
-### Deployment
-```bash
-npm run deploy
+`npm run dev` 会设置 `APP_ENV:development`。以 Wrangler 输出的地址为准，默认可访问：
+
+- [本地健康检查](http://localhost:8787/)
+- [本地 Swagger UI](http://localhost:8787/docs)
+- [本地 OpenAPI JSON](http://localhost:8787/openapi.json)
+
+健康检查返回：
+
+```json
+{ "message": "Common Server API is running." }
 ```
 
-### Tests
+本地模式使用本地 Cloudflare 资源模拟，但邮件、鹰角短信、游戏查询和签到仍会请求真实上游；Swagger 的 Try it out 也会实际执行相应操作。自动化测试使用 mock。
 
-业务源码放在 `src/`，测试统一放在根目录 `tests/`，并保持对应的目录结构。
-例如 `src/service/user/userService.ts` 对应 `tests/service/user/userService.test.ts`。
-测试使用 `@/` 导入源码及指定 mock 目标，Vitest 只收集 `tests/**/*.test.ts`。
+## 配置说明
 
-```bash
-npm run typecheck
-npm test
-# 运行单个模块的测试
-npm test -- tests/service/user/userService.test.ts
-```
+### 资源绑定与变量
 
-密码重置测试依赖 Node 内置的 `node:sqlite`。若当前 Node 版本需要显式启用该模块（例如 Node 22.12），使用 `NODE_OPTIONS=--experimental-sqlite npm test`。
+资源配置见 [wrangler.jsonc](wrangler.jsonc)，手写类型见 [src/index.ts](src/index.ts)。
 
-### Dependency security maintenance
+| 名称 | 类型 | 用途 |
+| --- | --- | --- |
+| `DB` | D1 | 数据库 `common-server-db` |
+| `KV` | KV Namespace | 验证码、待验证注册等临时数据 |
+| `OBS` | R2 Bucket | 对象存储，当前桶名为 `common-server-r2` |
+| `COMMON_SERVER_API` | Workflow | 对应导出的 `CommonServerAPI` 类 |
+| `APP_ENV` | 普通变量 | `production` / `development`，影响来源策略和前端链接 |
+| `JWT_SECRET` | Secret | JWT 签名与密码重置验证码哈希 |
+| `RESEND_API_KEY` | Secret | 邮件服务凭证 |
+| `API_KEY` | Secret | 仅用于尚未挂载的超管 Bearer 鉴权 |
+| `PUBLIC_ACCESS_KEY` | 类型声明 | 当前业务源码未使用 |
 
-Use `npm ci` to reproduce the checked-in dependency tree, then run `npx prisma generate`,
-`npm run typecheck`, `npm test`, and `npx wrangler deploy --dry-run` before deploying.
+部署到自己的 Cloudflare 账号时，需要将 D1、KV、R2 的资源标识及名称替换为自己的配置；修改数据库名后也应调整命令中的 `common-server-db`。
 
-The scoped `overrides` in `package.json` replace vulnerable versions pinned upstream:
-Next.js in the email preview UI, MySQL2 in the Prisma CLI, and DeepmergeTS in the Prisma
-config loader. The DeepmergeTS 8 override changes Map merging behavior; this project's
-Prisma configuration uses plain objects. Recheck Prisma config loading and email previews
-when changing these overrides, and remove them once upstream pins patched versions.
+修改绑定后运行 `npm run cf-typegen`（即 `wrangler types`），同时检查手写 `Bindings`。当前 Workflow 配置名为 `COMMON_SERVER_API`，手写类型却是 `CommonServerAPI`，接入该绑定前需处理这一差异。
 
-## Set Local Variables
-```bash
-npx wrangler secret put key
-```
+### 浏览器会话与来源
 
-## Create/Update D1 databese 
+普通用户使用 `auth_token`，Post 管理员使用 `post_auth_token`。两者均为 HttpOnly Cookie，`SameSite=lax`，通过 HTTPS 请求设置时启用 Secure。跨源浏览器请求需携带 Cookie，例如 `fetch` 使用 `credentials: 'include'`。
 
-### Prisma
+[来源策略](src/common/config/origin.ts) 在生产环境允许 `246801357.xyz` 的 HTTPS 子域，不包含根域；开发环境额外允许 `localhost`。本地前后端建议统一使用 `localhost`，不要混用 `127.0.0.1`。自部署需同步调整该策略、[邮件前端链接](src/common/config/frontend.ts)和发件地址。
 
-npx prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script --output migrations/0001_create_admin_table.sql
+当前 Post 邮件验证链接在开发环境指向 `http://localhost:5173`，生产环境指向 `https://post.246801357.xyz`。CORS 允许来源不等于已通过身份认证，接口仍会校验自己的 Cookie 或上游凭证。
 
-Create migration file
-```bash
-npx wrangler d1 migrations create common-server-db create_admin_table
-```
-Write migration file
-```bash
-# create
-npx prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script --output migrations/0001_create_admin_table.sql
-# update
-npx prisma migrate diff --from-schema ./prisma/differ/schema_old.prisma --to-schema ./prisma/differ/schema_new.prisma --script --output migrations/0002_create_user_table.sql
-```
-Apply migration
-```bash
-npx wrangler d1 migrations apply common-server-db --local
-npx wrangler d1 migrations apply common-server-db --remote
-```
+## 接口文档与接入
 
-Generate prisma client
-```bash
-npx prisma generate
-```
+完整参数、响应字段和状态码以同一版本服务的 `/docs` 与 `/openapi.json` 为准。保留路径大小写，例如 `/skLand` 和 `/checkIn`。
 
-## Deprecated
+Swagger 使用同源 API：先调用登录接口建立 Cookie，再调用受保护接口。浏览器不能通过 Authorize 手动设置 HttpOnly Cookie。UI 不持久化授权信息，并关闭外部规范校验和 URL 配置覆盖。
 
-#### local
+### 普通用户
 
-```bash
-npx wrangler d1 execute common-server-db --file=./schemas/schema.sql
-```
+以下路径均以 `/user` 为前缀；“公开”表示不要求登录，仍受请求校验和来源策略约束。
 
-#### remote
-
-```bash
-npx wrangler d1 execute common-server-db --file=./schemas/schema.sql --remote
-```
-
-## Tips
-Remember to rerun 'npx wrangler types' after you change your 'wrangler.jsonc'/'.env*' file.
-
-
-
-
-
-### Standard API workflow
-
-Request => router => controller => service ( => KV) (=> database)
-
-### Post administrator accounts
-
-Post administrator accounts use an identity and login session independent from normal users.
-They may remain unbound. A normal user and a Post administrator can form an optional
-one-to-one binding only while both `auth_token` and `post_auth_token` sessions are valid.
-
-| Method | Path | Authentication | Purpose |
+| 方法 | 路径 | 身份 | 用途 |
 | --- | --- | --- | --- |
-| `POST` | `/post/admin/register/valid-email` | Public | Check whether a Post administrator email is available |
-| `POST` | `/post/admin/register/init` | Public | Hash the password and send a 30-minute verification token |
-| `POST` | `/post/admin/register/validate` | Public | Verify the token and create an unbound Post administrator |
-| `POST` | `/post/admin/login` | Public | Create the independent Post administrator session |
-| `POST` | `/post/admin/logout` | Public | Clear the Post administrator session cookie |
-| `GET` | `/post/admin/current` | Post administrator | Return the active Post administrator without its password hash |
-| `POST` | `/post/admin/binding` | Normal user + Post administrator | Bind the two active identities |
-| `DELETE` | `/post/admin/binding` | Normal user + Post administrator | Remove their existing binding |
+| GET | `/username/{username}/exist` | 公开 | 检查用户名 |
+| POST | `/email/verify` | 公开 | 请求邮箱验证码 |
+| POST | `/register` | 公开 | 注册并建立会话 |
+| POST | `/login` | 公开 | 登录 |
+| POST | `/logout` | 公开 | 清除普通用户 Cookie |
+| GET | `/current` | 普通用户 | 查询当前用户及公开关联信息 |
+| POST | `/password/reset/code` | 公开 | 使用 `{ username, email }` 请求重置码 |
+| POST | `/password/reset` | 公开 | 使用 `{ username, email, code, password }` 重置密码 |
 
-Registration initialization accepts:
+密码重置使用专用接口，不使用旧 `/email/verify` 的 `reset_password` 类型。重置码有效期为 5 分钟，最多 5 次错误尝试，仅保存与服务端密钥关联的哈希。重置成功后递增 `User.sessionVersion`、消费挑战并清除当前 Cookie，之前签发的用户会话随即失效。
 
-```json
-{
-  "email": "post-admin@example.com",
-  "password": "Secure!Password"
-}
-```
+### Post 管理员
 
-Registration validation accepts the token delivered by email:
+以下路径均以 `/post/admin` 为前缀。Post 管理员与普通用户拥有独立身份；管理员可以保持未绑定状态，绑定为可选的一对一关系。
 
-```json
-{
-  "email": "post-admin@example.com",
-  "token": "verification-token"
-}
-```
+| 方法 | 路径 | 身份 | 用途 |
+| --- | --- | --- | --- |
+| POST | `/register/valid-email` | 公开 | 检查邮箱是否可用 |
+| POST | `/register/init` | 公开 | 接受 `{ email, password }`，发送 30 分钟有效的验证 token |
+| POST | `/register/validate` | 公开 | 接受 `{ email, token }`，创建管理员 |
+| POST | `/login` | 公开 | 建立管理员会话 |
+| POST | `/logout` | 公开 | 清除管理员 Cookie |
+| GET | `/current` | Post 管理员 | 查询当前管理员公开信息 |
+| POST | `/binding` | 普通用户 + Post 管理员 | 绑定当前两种身份 |
+| DELETE | `/binding` | 普通用户 + Post 管理员 | 解除当前绑定 |
 
-The implementation reuses the existing `DB`, `KV`, `JWT_SECRET`, and `RESEND_API_KEY`
-bindings. No secret value from the former PostAPI repository is required or copied.
+绑定接口必须同时具备两个 Cookie。任一身份已绑定其他账号时返回 409。待验证注册将密码哈希与 token 哈希保存在同一条 KV 记录中；从历史分离记录版本升级后，尚未完成验证的用户需要重新发起注册。
 
-Pending registrations store the password hash and token hash together in one KV record.
-After upgrading from the older split-record format, users with an outstanding verification
-link must restart registration; existing accounts and login sessions are unaffected.
+### 鹰角绑定、概览与手动签到
 
-#### OpenAPI 路由
-
-所有业务路由使用 `createNewRouter()` 创建 `OpenAPIHono`，用 `.openapi()` 注册，
-通过 `.route()` 汇总到根路由。不要新增只有 `.get()` / `.post()` 而没有文档声明的业务接口。
-
-```typescript
-import { createNewRouter } from '@/router/routerfactory';
-import { userRoutes } from '@/openapi/routes';
-import { authMiddleware } from '@/middleware/auth';
-import userController from '@/controller/user/userController';
-
-const userRouter = createNewRouter();
-userRouter.openapi(
-    { ...userRoutes.current, middleware: [authMiddleware] },
-    userController.getCurrentUser,
-);
-export default userRouter;
-```
-
-`src/openapi/schemas.ts` 定义请求及响应的 Zod schema，`src/openapi/routes.ts`
-定义路径、唯一 operationId、参数、鉴权和成功/错误状态，`src/openapi/document.ts`
-负责规范元数据与 Swagger UI。文档与输入校验共用这些声明；service 仍负责领域规则和规范化，
-响应不会被 Zod 自动裁剪，需用测试核对实际输出与 schema。
-
-#### Controller 与 Service
-
-控制器复用请求处理器，不复制 JSON 解析、校验与 try/catch：
-
-```typescript
-import { createValidatedHandler } from '@/controller/handlers';
-import { setAdminParser, setAdminService } from '@/service/user/superAdminService';
-
-const setUserAsAdmin = createValidatedHandler(
-    setAdminParser,
-    setAdminService,
-    'Set User As Admin Failed',
-);
-```
-
-默认输入为 JSON 对象；query 接口传第四个参数 `'query'`。无输入的服务使用
-`createServiceHandler(service, failureMessage)`。路由原有鉴权中间件仍需显式挂载。
-非法 JSON、null、数组等 body 返回 400，业务校验错误沿用 parser 的状态；未捕获异常
-返回稳定的 500 JSON，不将原始异常对象发给客户端。服务自己返回的业务错误和 207 部分成功保持不变。
-
-Service 返回 `StandardServerResult<T>`；`buildStandardServerResponse` 参数顺序为
-`(success, message, data, error, httpStatus)`，状态码必须是第五个参数：
-
-```typescript
-return buildStandardServerResponse(false, 'Missing username', null, 'Username is required', 400);
-// 成功响应允许 data 为 false、null 或对象。
-return buildStandardServerResponse(true, 'OK', data, null, 200);
-```
-
-测试位于 `tests/controller/` 与对应 service/gateway 目录。运行 `npm run typecheck`、
-`npm test` 和 `npx wrangler deploy --dry-run`。测试包含 Node 内存 SQLite，Node 22.12
-需 `NODE_OPTIONS=--experimental-sqlite npm test`；推荐使用支持 `node:sqlite` 的 Node 24。
-
-## EasonWeb 账号功能
-
-EasonWeb 现已接入普通用户登录/注册、邮箱验证码、密码重置、鹰角绑定、
-森空岛角色查询和手动签到。
-
-新增接口（响应保持 `{ message, data, httpStatus }`）：
+以下路径均以 `/game/hypergryph/account` 为前缀，全部要求普通用户 Cookie。此流程的上游 token 保存在后端，账号公开响应不返回该 token。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| POST | `/user/password/reset/code` | `{ username, email }` 请求重置验证码 |
-| POST | `/user/password/reset` | `{ username, email, code, password }` 设置新密码 |
-| POST | `/game/hypergryph/account/sms` | 已登录用户请求鹰角短信验证码，参数 `{ phone }` |
-| POST | `/game/hypergryph/account/` | `{ phone, method: 'sms', code }` 或 `{ phone, method: 'password', password }` 登录并绑定/更新会话 |
-| DELETE | `/game/hypergryph/account/` | 解除当前用户的鹰角绑定 |
-| GET | `/game/hypergryph/account/games` | 查询绑定账号下的明日方舟及终末地角色 |
-| POST | `/game/hypergryph/account/check-in` | 对该账号的角色签到，部分失败返回 207 和明细 |
+| POST | `/sms` | 使用 `{ phone }` 请求鹰角短信验证码 |
+| POST | `/` | 使用 `{ phone, method: 'sms', code }` 或 `{ phone, method: 'password', password }` 绑定 / 刷新凭证 |
+| DELETE | `/` | 解除绑定 |
+| GET | `/games` | 获取绑定账号下的游戏角色 |
+| GET | `/overview` | 使用 query 参数 `appCode`、`uid`、`gameId` 获取指定角色概览 |
+| POST | `/check-in` | 全部或指定角色手动签到 |
 
-鹰角账号接口均要求普通用户 `auth_token`。第三方 token 只存于后端，不返回给这些页面。
-Post 绑定接口仍保留 `/post/admin/binding`，同时要求普通用户与管理员 Cookie；当前 EasonWeb 不展示该功能。
+概览和签到使用 `/games` 返回的角色标识；`appCode` 为 `arknights` 或 `endfield`，`gameId` 是区服标识，不是显示名称。后端检查角色归属，两个接口均返回 `Cache-Control: private, no-store`。
 
-### 数据库升级与会话失效
+概览包含基础资料、资源时钟、指标、分区记录及干员简表；终末地还提供可选的光荣之路、战争回响、地区建设与影拓丰碑扩展。上游缺失数据可能为 `null` 或省略可选对象，不能当成 0；可选详情失败时可保留已有摘要。图片字段仅返回校验后的 URL，后端不下载或代理图片。
 
-发布前先执行 `migrations/0006_password_reset.sql`，再部署后端和前端：
+签到不传 body 时处理全部已绑定角色，也可选择角色或重试失败项：
 
-```sh
-npx wrangler d1 migrations apply common-server-db --local
-# 生产发布时，备份/核对数据库后由发布流程执行：
-# npx wrangler d1 migrations apply common-server-db --remote
-npx prisma generate
+```json
+{
+  "roles": [
+    { "appCode": "arknights", "uid": "role_uid", "gameId": "server_id" }
+  ]
+}
 ```
 
-本迁移添加 `User.sessionVersion`（默认 0）和 `PasswordResetChallenge` 表。
-现有未重置密码的用户可以继续使用旧会话；重置成功会递增版本并拒绝之前签发的 Cookie。
-重置码仅保存与服务端密钥关联的哈希，有效期 5 分钟，最多 5 次错误尝试；D1 原子批处理
-更新密码并消费挑战。相同未过期挑战不会重复发信，发送失败会清理对应记录。
-旧 `/user/email/verify` 的 `reset_password` 类型不用于新流程，请调用专用重置接口。
+选择器最多 100 项，整批归属校验通过后才发送签到请求。结果包含 `results`、`summary`、`requestId`、`completedAt`（Unix 秒）、`durationMs`，并保留 `checkInResults` / `errorResults`。
 
-自动化测试通过 mock 与 Node 内存 SQLite 验证注册、登录、Post 绑定和密码重置；
-不代表真实 Cloudflare D1/KV 或第三方平台验证。测试不会发送真实验证码或执行账号签到。
+- 角色状态为 `success`、`already_checked_in` 或 `failed`；已签到视为成功结果。
+- 有失败角色时返回 HTTP 207，包括全部角色失败的情况；客户端应读取逐角色状态。
+- 奖励明细缺失不推翻已确认的签到成功；未知名称 / 数量为 `null`，`rewardsComplete=false`。
+- 网络或超时错误不会自动重发签到 POST，结果可能已在上游生效；可根据 `retryable` 手动重试。`clock_skew` 表示时间校正失败，不应直接要求重新登录。
 
-### 森空岛签到结果与故障诊断
+故障排查可使用 `requestId` 对照 `skland.check_in` 日志。协议、签名和错误分类见[协议参考](.agents/skills/skland-backend/references/protocol.md)，字段与模块导航见[森空岛后端指南](.agents/skills/skland-backend/SKILL.md)。
 
-`POST /game/hypergryph/account/check-in` 无 body 时对所有已绑定角色签到；传入
-`{ "roles": [{ "appCode": "arknights", "uid": "角色 UID", "gameId": "区服 ID" }] }`
-可只签到指定角色或重试失败角色。选择器最多 100 项，整批校验角色归属后才调用上游，
-昵称及区服显示名取自后端绑定列表。该接口返回 `Cache-Control: private, no-store`。
+### 旧协议接口
 
-响应保留旧 `checkInResults` / `errorResults`，新增 `results`（角色、状态、奖励、错误类型、
-是否可重试）、`summary`、`requestId`、`completedAt`（Unix 秒）和 `durationMs`。
-状态为 `success`、`already_checked_in`、`failed`；只要有失败角色就返回 207，
-包括全失败，客户端应根据逐角色状态判断。奖励明细缺失不撤销上游 code=0 的成功确认，
-未知名称/数量为 null，`rewardsComplete=false`；0 是有效数量。
+`/game/hypergryph` 下仍保留短信、token 校验与 OAuth 交换接口，`/game/hypergryph/skLand` 下保留 cred、角色查询及 `/checkIn` 等旧接口。这些接口接收上游凭证，鉴权与响应契约不同于网站 Cookie 账号流程；新的浏览器客户端优先使用上面的绑定账号接口，完整旧契约查阅 OpenAPI。
 
-方舟 POST 签名及请求体为 uid/gameId；终末地 POST 不传 body，签名使用空字符串，
-以 `sk-game-role: 3_{roleId}_{serverId}` 指定角色。官方 HTTP 401/code 10003 且返回
-有效 timestamp 时，用发送时间减官方时间计算时差，重新签名重试一次（两个游戏均覆盖测试）。
-校正后仍失败或官方时间字段不可用时返回可重试的 `clock_skew`，不提示重新登录。
-网络/超时不会自动重发 POST；前端说明结果可能已生效，用户可手动重试确认。
-“今日已签到”等明确提示单独归类；不能只因 code=10001 就认为已签到，它也可能代表其他错误。
+### 响应格式
 
-角色按 appCode/uid/gameId 去重，最多 3 个并发请求；单次上游请求 12 秒，批次经过
-40 秒后不再启动新角色请求，已发出的请求按各自超时结束。该去重不提供跨 Worker 的互斥锁，
-最终重复领取由官方接口处理。日志 `skland.check_in` 仅含请求编号、耗时、统计、游戏及错误码，
-不记录 cred/token、UID、昵称或原始上游异常。该请求编号可与页面“诊断信息”对应。
+业务正常响应（包括 HTTP 207）使用：
 
-2026-10-05 核对依据：
-- [官方终末地签到页面](https://game.skland.com/endfield/sign-in)及其
-  [官方 API/奖励 codec](https://assets.skland.com/_static_assets/game-tools/dist-BZImVwlH.js)：两游戏签到路径、奖励数组和资源映射。
-- [CN-Grace/QinglongScripts](https://github.com/CN-Grace/QinglongScripts/blob/main/skyland.py)：终末地空 body 与角色 Header，方舟 body，奖励差异。
-- [xydesu/endfield-assistant](https://github.com/xydesu/endfield-assistant/blob/main/utils/attendance.js)：重复签到可能通过 HTTP 403 返回的处理案例。
+```json
+{ "message": "OK", "data": {}, "httpStatus": 200 }
+```
 
-协议测试使用合成响应，不代表真实账号已领取奖励。没有新增数据库迁移、定时签到或凭证存储。
+错误响应使用：
+
+```json
+{ "message": "Invalid request", "error": null, "httpStatus": 400 }
+```
+
+`GET /` 健康检查是例外，仅返回 `message`。内部 `success` 字段不会自动输出给客户端。JSON 结构 / 字段错误返回 400，不支持的 body 媒体类型返回 415，鉴权先于请求结构校验；其他状态如 201、409、410、502、503 以各接口契约为准。
+
+## 数据库迁移
+
+模型定义在 [prisma/schema.prisma](prisma/schema.prisma)，增量 SQL 位于根目录 [migrations/](migrations/)。使用 Wrangler 管理 D1 迁移，流程见 [Cloudflare D1 迁移文档](https://developers.cloudflare.com/d1/reference/migrations/)。
+
+已有数据库按顺序应用待执行迁移：
+
+```bash
+npx wrangler d1 migrations list common-server-db --local
+npx wrangler d1 migrations apply common-server-db --local
+```
+
+新增模型变更时：
+
+1. 修改 Prisma schema，并用 `npx wrangler d1 migrations create common-server-db describe_change` 创建新的迁移文件。
+2. 在新文件中编写、审查增量 SQL；如使用 Prisma diff，先核对旧 schema 基线，再将结果写入这个新文件。
+3. 本地应用迁移，运行 `npx prisma generate`，检查类型及相关测试。
+4. 将 schema 与迁移一起提交；不要修改已执行的历史迁移，也不要用 `--from-empty` 生成的全量建表 SQL 覆盖现有增量文件。
+
+`prisma/differ/` 中的快照不保证与当前模型同步。`prisma.config.ts` 指向本机 Wrangler SQLite 路径，且配置的 `prisma/migrations` 与实际目录不同；不要直接照搬该路径或使用 `prisma migrate dev` 代替上述流程。生成目录 `src/generated/prisma/` 不提交。
+
+从旧版本升级时需包含 [0006_password_reset.sql](migrations/0006_password_reset.sql)：它添加 `User.sessionVersion` 和 `PasswordResetChallenge`。先完成迁移再发布依赖这些字段的代码。
+
+## 部署
+
+部署前配置自己的 Cloudflare 资源及域名相关代码，并确认目标账号。云端 Secret 使用以下命令交互输入；它们会修改远程配置，不能替代本地 `.dev.vars`。详见 [Cloudflare Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)。
+
+```bash
+npx wrangler login
+npx wrangler secret put JWT_SECRET
+npx wrangler secret put RESEND_API_KEY
+```
+
+先执行发布验证：
+
+```bash
+npx prisma generate
+npm run typecheck
+npm test
+npx wrangler deploy --dry-run
+```
+
+确认目标数据库、迁移内容及备份后，执行远程迁移和发布：
+
+```bash
+npx wrangler d1 migrations list common-server-db --remote
+npx wrangler d1 migrations apply common-server-db --remote
+npm run deploy
+```
+
+`npm run deploy` 会先生成 Prisma Client 再运行 `wrangler deploy`，不会自动应用数据库迁移。`--dry-run` 仅验证打包，不会发布服务，也不代表线上资源或第三方接口已验证。
+
+## 开发与测试
+
+### 项目目录
+
+```text
+src/
+  index.ts       Worker 入口、初始化、Bindings、CORS / CSRF
+  router/        路由挂载与 OpenAPI 注册
+  controller/    请求处理器与业务调用
+  service/       用户、Post 管理员和游戏业务
+  model/         业务类型与请求解析
+  openapi/       请求 / 响应 schema、路由契约和文档
+  middleware/    身份认证中间件
+  lib/           会话和共享服务初始化 / 获取
+  common/        上游 API、配置、校验、邮件、网关和存储
+prisma/          数据模型与历史差异快照
+migrations/      D1 增量迁移
+scripts/         OpenAPI 导出脚本
+tests/           Vitest 回归测试
+```
+
+通常沿 `router → controller → service → 存储 / 外部 API` 组织代码，部分路由直接调用 service。`@/` 指向 `src/`，测试统一放在 `tests/`，游戏回归也包含 `tests/` 根目录的用例。
+
+### 常用命令
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run dev` / `npm start` | 本地开发，设置开发环境 |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm test` | 全量测试 |
+| `npm test -- tests/service/user/userService.test.ts` | 指定测试 |
+| `npm test -- tests/openapi` | OpenAPI 覆盖、请求与响应契约测试 |
+| `npm run openapi:export` | 导出 `build/openapi.json` |
+| `npm run cf-typegen` | 生成 Workers 绑定类型 |
+| `npm run email:dev` | 预览邮件模板 |
+
+Vitest 使用 Node 环境，不是 Workers pool。密码重置测试通过 `node:sqlite` 内存数据库模拟 D1；Node 22.12 等需要显式启用该模块的版本使用：
+
+```bash
+NODE_OPTIONS=--experimental-sqlite npm test
+```
+
+mock 与内存 SQLite 测试不代表真实 D1 / KV 或第三方平台验证。`src/resources/SKIslandCheckIn.ts` 是有顶层执行的历史脚本，不作为测试运行。
+
+新增或修改接口时同步 `src/openapi/schemas.ts`、`src/openapi/routes.ts` 和测试；业务路由通过 `createNewRouter()` / `.openapi()` 注册。导出的 `build/openapi.json` 不提交。Controller / Service 约定、响应封装与验证范围见 [AGENTS.md](AGENTS.md) 和[项目开发指南](.agents/skills/common-server-api/SKILL.md)。
+
+### 依赖维护
+
+使用 `npm ci` 复现锁文件中的依赖树。`package.json` 的 scoped overrides 用于替换上游固定的依赖：邮件预览 UI 的 Next.js、Prisma CLI 的 MySQL2，以及 Prisma 配置加载器的 DeepmergeTS。调整时重新检查当前上游版本及修复情况，不仅为了简化依赖树删除 overrides。
+
+DeepmergeTS 8 的 Map 合并行为有变化，当前 Prisma 配置使用普通对象。依赖更新后核对 Prisma 配置加载、Client 生成、类型检查、测试和 Workers dry-run；涉及邮件 UI 时还需检查模板预览。
+
+Workers API、绑定和限制可能变化，相关开发先查 [Cloudflare 官方文档](https://developers.cloudflare.com/workers/)，并遵循 [AGENTS.md](AGENTS.md) 的文档检索与协作要求。
