@@ -1,5 +1,5 @@
 import { createNewRouter } from "@/router/routerfactory";
-import { logger } from "hono/logger";
+import { requestLogging } from "@/middleware/requestLogging";
 import { prettyJSON } from "hono/pretty-json";
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { cors } from 'hono/cors'
@@ -91,7 +91,7 @@ app.use('*', async (c, next) => {
 
 app.use('*',
 	prettyJSON(),
-	logger(),
+	requestLogging,
 	cors({
 		origin: (origin, c) => getCORSAllowedOrigin(origin, c.env.APP_ENV),
 		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

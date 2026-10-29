@@ -4,10 +4,10 @@ declare global {
   var EmailManager: EmailManager | undefined
 }
 
-export const initEmailManager = (env: { RESEND_API_KEY: string }) => {
+export const initEmailManager = (env: { RESEND_API_KEY: string; DB: D1Database }) => {
   if (!global.EmailManager) {
     console.log('📧 Initializing Email Manager...');
-    global.EmailManager = new EmailManager(env.RESEND_API_KEY);
+    global.EmailManager = new EmailManager(env.RESEND_API_KEY, env.DB);
   }
 }
 

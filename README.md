@@ -17,7 +17,7 @@
 | 手动签到 | 全部或指定角色签到、逐角色结果、奖励与可重试错误信息 |
 | 接口文档 | OpenAPI 3.0.3、Swagger UI、Zod 请求校验与契约测试 |
 
-运行时使用 Workers；数据库为 D1，通过 Prisma D1 adapter 访问；KV 保存验证码及待验证注册等临时数据，R2 提供对象存储封装，邮件使用 Resend / React Email，测试使用 Vitest。
+运行时使用 Workers；数据库为 D1，通过 Prisma D1 adapter 访问，保存注册 / 密码重置挑战与邮件日额度；KV 保存 Post 待验证注册及旧验证流程的临时数据，R2 提供对象存储封装，邮件使用 Resend / React Email，测试使用 Vitest。
 
 当前没有定时签到任务。Workflow 仅包含初始步骤，超管路由尚未挂载；终末地概览由统一账号接口提供，没有独立的角色技能 / 装备详情接口。
 
@@ -43,7 +43,7 @@ JWT_SECRET="replace-with-a-long-random-development-secret"
 RESEND_API_KEY="replace-with-your-resend-api-key"
 ```
 
-`JWT_SECRET` 用于会话签名和密码重置验证码哈希。邮件服务在首个请求时初始化，因此也需要提供 `RESEND_API_KEY`；实际发送邮件还需使用已在 Resend 验证的发件域名，发件地址配置见 [email.ts](src/common/config/email.ts)。
+`JWT_SECRET` 用于会话签名、注册和密码重置验证码哈希。邮件服务在首个请求时初始化，因此也需要提供 `RESEND_API_KEY`；实际发送邮件还需使用已在 Resend 验证的发件域名，发件地址配置见 [email.ts](src/common/config/email.ts)。
 
 本地秘密变量放在 `.dev.vars` 或 `.env` 中，两者选其一；存在 `.dev.vars` 时，Wrangler 不会把 `.env` 中的值加载到本地 Worker 的 `env`。这些文件已被 Git 忽略。详见 [Cloudflare 本地变量说明](https://developers.cloudflare.com/workers/local-development/environment-variables/)。
 
@@ -77,11 +77,11 @@ npm run dev
 | 名称 | 类型 | 用途 |
 | --- | --- | --- |
 | `DB` | D1 | 数据库 `common-server-db` |
-| `KV` | KV Namespace | 验证码、待验证注册等临时数据 |
+| `KV` | KV Namespace | Post 待验证注册、旧验证流程的临时数据 |
 | `OBS` | R2 Bucket | 对象存储，当前桶名为 `common-server-r2` |
 | `COMMON_SERVER_API` | Workflow | 对应导出的 `CommonServerAPI` 类 |
 | `APP_ENV` | 普通变量 | `production` / `development`，影响来源策略和前端链接 |
-| `JWT_SECRET` | Secret | JWT 签名与密码重置验证码哈希 |
+| `JWT_SECRET` | Secret | JWT 签名、注册和密码重置验证码哈希 |
 | `RESEND_API_KEY` | Secret | 邮件服务凭证 |
 | `API_KEY` | Secret | 仅用于尚未挂载的超管 Bearer 鉴权 |
 | `PUBLIC_ACCESS_KEY` | 类型声明 | 当前业务源码未使用 |
@@ -89,6 +89,14 @@ npm run dev
 部署到自己的 Cloudflare 账号时，需要将 D1、KV、R2 的资源标识及名称替换为自己的配置；修改数据库名后也应调整命令中的 `common-server-db`。
 
 修改绑定后运行 `npm run cf-typegen`（即 `wrangler types`），同时检查手写 `Bindings`。当前 Workflow 配置名为 `COMMON_SERVER_API`，手写类型却是 `CommonServerAPI`，接入该绑定前需处理这一差异。
+
+### 邮件额度与日志
+
+发信前通过 D1 事务原子占用额度，每个 UTC 日最多 **100 次发送尝试**，在 UTC 00:00（北京时间 / 香港时间 08:00）恢复新一天的额度；失败或结果未知的发送仍计数，数据库不可用时不发送。这与 [Resend Free 的日额度重置时间](https://resend.com/docs/api-reference/rate-limit)一致。Resend Free 还有每月 3,000 封限制；同一账户的其他应用、收信和多个收件人也占用平台额度，本项目的计数不能代表账户总用量。Free 达到平台额度后返回 429，付费套餐的计费取决于账户设置。
+
+**新计数器首次用于发信的 UTC 当天会暂停发信，下一次北京时间 08:00 自动恢复。** 旧 KV 计数可能因并发少算，因此不直接导入或在切换当天重新发放额度。此规则也适用于全新安装；注册 / 重置等依赖邮件的操作当天会返回发送失败，次日重试。保留 `EmailDailyQuota` 历史记录作为初始化标记；清空整表会重新触发暂停。切换时须一次性替换旧版本，不能让仍使用 KV 计数的旧版本持续并行发送。
+
+应用请求日志只记录方法、路径、状态和耗时；Workers observability 启用 `redact_query_string`，移除平台日志 / trace 请求 URL 的查询字符串。旧鹰角错误响应不序列化上游异常对象。配置不会删除已经保存的历史日志。
 
 ### 浏览器会话与来源
 
@@ -120,6 +128,8 @@ Swagger 使用同源 API：先调用登录接口建立 Cookie，再调用受保�
 | POST | `/password/reset` | 公开 | 使用 `{ username, email, code, password }` 重置密码 |
 
 密码重置使用专用接口，不使用旧 `/email/verify` 的 `reset_password` 类型。重置码有效期为 5 分钟，最多 5 次错误尝试，仅保存与服务端密钥关联的哈希。重置成功后递增 `User.sessionVersion`、消费挑战并清除当前 Cookie，之前签发的用户会话随即失效。
+
+注册验证码通过 `/email/verify` 的 `register` 类型发送，D1 只保存与服务端密钥关联的哈希，五分钟有效且有效期内不重复发送。创建 User 与消费验证码在同一事务中完成，用户名或邮箱冲突返回 409；冲突不会消耗验证码。`User.email` 对非空值有唯一约束，`User.phone` 仍可为空。
 
 ### Post 管理员
 
@@ -192,7 +202,7 @@ Swagger 使用同源 API：先调用登录接口建立 Cookie，再调用受保�
 { "message": "Invalid request", "error": null, "httpStatus": 400 }
 ```
 
-`GET /` 健康检查是例外，仅返回 `message`。内部 `success` 字段不会自动输出给客户端。JSON 结构 / 字段错误返回 400，不支持的 body 媒体类型返回 415，鉴权先于请求结构校验；其他状态如 201、409、410、502、503 以各接口契约为准。
+`GET /` 健康检查是例外，仅返回 `message`。内部 `success` 字段不会自动输出给客户端。请求体最多 64 KiB，超限返回 413，按实际流字节检查，不仅依赖 Content-Length。大小限制在鉴权前执行；鉴权先于 JSON 结构 / 字段校验。结构错误返回 400，最多返回五条简短错误，不支持的 body 媒体类型返回 415；其他状态如 201、409、410、502、503 以各接口契约为准。
 
 ## 数据库迁移
 
@@ -215,6 +225,16 @@ npx wrangler d1 migrations apply common-server-db --local
 `prisma/differ/` 中的快照不保证与当前模型同步。`prisma.config.ts` 指向本机 Wrangler SQLite 路径，且配置的 `prisma/migrations` 与实际目录不同；不要直接照搬该路径或使用 `prisma migrate dev` 代替上述流程。生成目录 `src/generated/prisma/` 不提交。
 
 从旧版本升级时需包含 [0006_password_reset.sql](migrations/0006_password_reset.sql)：它添加 `User.sessionVersion` 和 `PasswordResetChallenge`。先完成迁移再发布依赖这些字段的代码。
+
+[0007_registration_and_email_integrity.sql](migrations/0007_registration_and_email_integrity.sql) 添加非空邮箱唯一索引、`RegistrationChallenge` 和 `EmailDailyQuota`，须在发布新代码前应用。先检查既有用户邮箱冲突：
+
+```sql
+SELECT email, COUNT(*) AS count
+FROM User WHERE email IS NOT NULL
+GROUP BY email HAVING COUNT(*) > 1;
+```
+
+若有结果，先根据实际账号归属处理冲突，不能通过删除用户规避唯一约束；迁移遇到重复值会失败，不自动清理数据。多个 NULL 邮箱仍被允许。升级后旧 KV 注册验证码不再生效，用户需要重新请求；邮件首次启用当天的暂停规则见上文。手机号模型和历史迁移 0004 保持不变：普通用户手机号可空，鹰角绑定手机号必填。
 
 ## 部署
 
@@ -281,7 +301,7 @@ tests/           Vitest 回归测试
 | `npm run cf-typegen` | 生成 Workers 绑定类型 |
 | `npm run email:dev` | 预览邮件模板 |
 
-Vitest 使用 Node 环境，不是 Workers pool。密码重置测试通过 `node:sqlite` 内存数据库模拟 D1；Node 22.12 等需要显式启用该模块的版本使用：
+Vitest 使用 Node 环境，不是 Workers pool。注册、密码重置和邮件并发测试通过 `node:sqlite` 内存数据库模拟 D1；Node 22.12 等需要显式启用该模块的版本使用：
 
 ```bash
 NODE_OPTIONS=--experimental-sqlite npm test

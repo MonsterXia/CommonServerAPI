@@ -4,7 +4,10 @@ import { createNewRouter } from '@/router/routerfactory';
 import gameRouter from './game/game';
 import postRouter from './post/post';
 import userRouter from './user/user';
+import { requestBodyLimit } from '@/middleware/requestBodyLimit';
 const router = createNewRouter();
+
+router.use('*', requestBodyLimit);
 
 router.route('/user', userRouter);
 router.route('/game', gameRouter);

@@ -1,6 +1,6 @@
 # 领域约定与实现注意点
 
-按 2026-10-05 当前源码核对。路径相对于仓库根目录；按领域读取实现和测试，不将这里的实现摘要当作新的功能要求。
+按 2026-10-29 当前源码核对。路径相对于仓库根目录；按领域读取实现和测试，不将这里的实现摘要当作新的功能要求。
 
 ## 身份与权限
 
@@ -17,8 +17,8 @@ JWT 共用 `src/lib/jwtCore.ts` 与 `src/common/config/jwtConfig.ts`：HS256、�
 ## 普通用户注册与校验
 
 - 路由/控制器/服务：`src/router/user/user.ts`、`src/controller/user/userController.ts`、`src/service/user/userService.ts`。邮箱 trim/lowercase 及 Joi 格式校验在 `src/common/validation/email.ts`；新密码在 `password.ts` 要求 6–128 字符、最多 72 UTF-8 字节、大写/小写/指定特殊字符。登录只校验既有凭证输入，不把新密码强度策略追加到登录。
-- `src/common/service/verificationService.ts` 负责随机验证码/token、哈希、定时比较、KV 与邮件。普通注册使用 `email-verification-code-{email}-register`，五分钟有效；当前注册验证码是 KV 中的原码，不要与 Post 的 tokenHash 或密码重置的密钥哈希混淆。
-- 注册消费验证码后创建 User，返回 201 并设置 Cookie，响应包含 user 和 token。`/user/current` 的关联账号使用公开字段；不要复用内部全记录 helper 暴露 password 或 Hypergryph token。
+- `src/common/service/verificationService.ts` 提供随机验证码/token、哈希、KV 与邮件工具；普通注册在 `registrationService.ts` 使用 D1 `RegistrationChallenge`，保存 JWT_SECRET、registration、email、code 拼接后的 SHA-256，五分钟有效。旧 KV 注册原码不再读取。
+- 注册创建 User 与消费验证码使用同一 D1 batch；INSERT 时再次核验有效期，邮箱 / 用户名冲突返回 409 且保留挑战。成功返回 201 并设置 Cookie，响应包含公开 user 和 token。并发测试见 `tests/service/user/registrationConcurrency.test.ts`。`/user/current` 的关联账号使用公开字段；不要复用内部全记录 helper 暴露 password 或 Hypergryph token。
 - 旧 `/user/email/verify` 仍接受多种 type，但新密码重置走下节独立接口。测试：`tests/service/user/userService.test.ts`、`tests/common/validation/password.test.ts`、`tests/common/service/verificationService.test.ts`、`tests/controller/`、`tests/openapi/requests.test.ts`。
 
 ## 密码重置与 D1 一致性
@@ -54,11 +54,11 @@ JWT 共用 `src/lib/jwtCore.ts` 与 `src/common/config/jwtConfig.ts`：HS256、�
 ## 初始化、数据库与外部服务
 
 - `src/index.ts` 首次请求初始化 Prisma、KV、网关、OBS、邮件服务，以全局 servicesInitialized 标识；`src/lib/` 提供各 getter/init。不要把缺初始化引起的测试失败当业务结果；parser/路由单测通常不需要导入含 `cloudflare:workers` 的入口。
-- Prisma 由 `src/lib/prisma.ts` 的 `PrismaD1(env.DB)` 创建。模型是 Admin、User、PostAdmin、HypergryphAccount、PasswordResetChallenge；`User.email` 并无数据库唯一约束，不能仅据注册前查询就宣称有唯一索引。
+- Prisma 由 `src/lib/prisma.ts` 的 `PrismaD1(env.DB)` 创建。模型包括 Admin、User、PostAdmin、HypergryphAccount、PasswordResetChallenge、RegistrationChallenge、EmailDailyQuota；迁移 0007 为 `User.email` 添加唯一索引，多个 NULL 仍合法。升级前处理历史重复邮箱，不删除用户或修改历史迁移。`User.phone` 可空，`HypergryphAccount.phone` 必填。
 - Wrangler 绑定为 DB、KV、OBS、Workflow COMMON_SERVER_API。`src/index.ts` 手写类型却是 CommonServerAPI，属于待核对差异；Workflow 类仅有 initial step，配置没有签到 cron。不要把类名误当 binding 名，也不要承诺已具备自动签到。
 - 网关 `src/common/gateway/axiosClient.ts` 使用 Axios fetch adapter 与 `fetchOptions.cache='no-store'`；`gatewayManager.ts` 参数采用 AxiosRequestConfig，返回 response.data，不返回 AxiosResponse。固定上游域名在 `src/common/config/predefinedDomin.ts`，端点在 `endpoints.ts`。
 - R2 经 `src/lib/OBSManager.ts` → `src/common/OBS/OBSManager.ts` → `r2.ts`，目前只支持 obsType='r2'；get 失败/缺对象可返回 null，put/delete 返回 boolean，不把 false 当成功。当前没有独立公开上传路由。
-- 邮件经 `src/lib/emailManager.ts` 和 `src/common/Email/emailManager.ts`，模板在 `src/common/Email/template/`；KV helper 使用 `src/lib/KV.ts`。调用方应处理封装返回结果，测试使用 mock，不发送真实邮件。
+- 邮件经 `src/lib/emailManager.ts` 和 `src/common/Email/emailManager.ts`，模板在 `src/common/Email/template/`；D1 原子限制每 UTC 日 100 次尝试，失败也计数。首次发信当天暂停，次日 UTC 00:00 恢复，保留 EmailDailyQuota 历史作为初始化标记；它不统计同一 Resend 账户其他应用或收信量。KV helper 使用 `src/lib/KV.ts`。调用方应处理封装返回结果，测试使用 mock，不发送真实邮件。
 - 环境变量名称以 Bindings 与使用点为准；.dev.vars/.env 的值不进入文档或 fixture。Prisma 输出位于被忽略的 `src/generated/prisma/`，迁移在根目录 `migrations/`；具体生成、迁移和 dry-run 命令见项目 skill。
 
 ## 依赖维护

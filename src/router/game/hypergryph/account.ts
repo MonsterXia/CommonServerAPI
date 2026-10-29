@@ -1,6 +1,7 @@
 import { accountRoutes } from '@/openapi/routes';
 import { createNewRouter, handleRouteError } from '@/router/routerfactory';
 import { authMiddleware } from '@/middleware/auth';
+import { checkInSelectionLimit } from '@/middleware/checkInSelectionLimit';
 import { bindHypergryphAccount, unbindHypergryphAccount, getBoundGames, getBoundGameOverview } from '@/service/game/hypergryph/accountService';
 import { fetchHypergryphPhoneCode } from '@/service/game/hypergryph/loginService';
 import { buildContextJson, buildErrorContextJson } from '@/util/hono';
@@ -22,7 +23,7 @@ account.openapi(accountRoutes.overview, async c => {
     c.header('Cache-Control', 'private, no-store');
     return buildContextJson(c, await getBoundGameOverview(c, c.req.query()));
 });
-account.openapi(accountRoutes.checkIn, async c => {
+account.openapi({ ...accountRoutes.checkIn, middleware: [checkInSelectionLimit] }, async c => {
     c.header('Cache-Control', 'private, no-store');
     if (!(c.req.header('content-type') ?? '').toLowerCase().includes('application/json') && (await c.req.text()).length) return buildErrorContextJson(c, 'JSON content type required', null, 415);
     const input = await c.req.json().catch(() => undefined);

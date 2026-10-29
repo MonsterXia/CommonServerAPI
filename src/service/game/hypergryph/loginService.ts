@@ -143,12 +143,12 @@ export const fetchHypergryphPhoneCode = async (data: HypergryphSendPhoneCodePayl
                 businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
-    } catch (e) {
+    } catch {
         return buildStandardServerResponse(
             false,
             'Failed to fetch phone code',
             null,
-            e,
+            'Upstream request failed',
             businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
@@ -174,12 +174,12 @@ export const fetchHypergryphTokenByPhoneCode = async (data: HypergryphTokenByPho
                 businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
-    } catch (e) {
+    } catch {
         return buildStandardServerResponse(
             false,
             'Failed to fetch token by phone code',
             null,
-            e,
+            'Upstream request failed',
             businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
@@ -205,12 +205,12 @@ export const fetchHypergryphTokenByPassword = async (data: HypergryphTokenByPass
                 businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
-    } catch (e) {
+    } catch {
         return buildStandardServerResponse(
             false,
             'Failed to fetch token by password',
             null,
-            e,
+            'Upstream request failed',
             businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
@@ -236,12 +236,12 @@ export const fetchHypergryphTokenValidate = async (params: HypergryphTokenValida
                 businessStatusCode.INTERNAL_SERVER_ERROR
             )
         }
-    } catch (e) {
+    } catch {
         return buildStandardServerResponse(
             false,
             'Failed to validate token',
             null,
-            e,
+            'Upstream request failed',
             businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }
@@ -267,12 +267,12 @@ export const fetchHypergryphOauthToken = async (data: HypergryphGrantOAuthTokenR
                 businessStatusCode.INTERNAL_SERVER_ERROR
             );
         }
-    } catch (e) {
+    } catch {
         return buildStandardServerResponse(
             false,
             'Failed to fetch Hypergryph skLand Oauth Token',
             null,
-            e,
+            'Upstream request failed',
             businessStatusCode.INTERNAL_SERVER_ERROR
         );
     }

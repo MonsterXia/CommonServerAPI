@@ -30,7 +30,8 @@ export const createNewRouter = () => {
                     c,
                     'Invalid request',
                     result.error.issues
-                        .map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`)
+                        .slice(0, 5)
+                        .map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`.slice(0, 200))
                         .join('; '),
                     400,
                 );

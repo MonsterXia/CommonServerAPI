@@ -47,6 +47,7 @@ function operation(options: {
     for (const status of new Set([
         400,
         403,
+        413,
         500,
         ...(options.request?.body ? [415] : []),
         ...(options.errors ?? []),
@@ -62,6 +63,7 @@ function operation(options: {
                         404: 'Account not found',
                         409: 'Account conflict or missing binding',
                         410: 'Registration verification expired; restart registration',
+                        413: 'Request body exceeds 64 KiB',
                         415: 'JSON content type required',
                         429: 'Verification request throttled',
                         500: 'Internal or legacy upstream error',

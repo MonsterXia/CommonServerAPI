@@ -53,6 +53,40 @@ beforeEach(() => {
 });
 
 describe('OpenAPI request boundary', () => {
+    it('rejects an oversized streamed body with a small 413 response', async () => {
+        const bytes = new TextEncoder().encode(JSON.stringify({ username: 'test', password: 'x'.repeat(70000) }));
+        const response = await router.request('/user/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } }),
+            duplex: 'half',
+        } as RequestInit);
+        expect(response.status).toBe(413);
+        expect((await response.text()).length).toBeLessThan(1024);
+    });
+
+    it('rejects an excessive role array before expanding item validation errors', async () => {
+        vi.mocked(getCurrentUser).mockResolvedValue({ username: 'test-user' });
+        const response = await post('/game/hypergryph/account/check-in', { roles: Array.from({ length: 10000 }, () => ({})) });
+        expect(response.status).toBe(400);
+        expect((await response.text()).length).toBeLessThan(1024);
+        expect(getBoundGames).not.toHaveBeenCalled();
+    });
+
+    it('caps errors for a permitted-size but invalid role array', async () => {
+        vi.mocked(getCurrentUser).mockResolvedValue({ username: 'test-user' });
+        const response = await post('/game/hypergryph/account/check-in', { roles: Array.from({ length: 100 }, () => ({})) });
+        expect(response.status).toBe(400);
+        expect((await response.text()).length).toBeLessThan(2048);
+    });
+
+    it('accepts 100 valid role selectors and preserves authentication before validation', async () => {
+        const roles = Array.from({ length: 100 }, (_, n) => ({ appCode: 'arknights', uid: `${n}`, gameId: '1' }));
+        expect((await post('/game/hypergryph/account/check-in', { roles })).status).toBe(401);
+        vi.mocked(getCurrentUser).mockResolvedValue({ username: 'test-user' });
+        vi.mocked(getBoundGames).mockResolvedValue({ success: true, message: 'OK', data: null, httpStatus: 200 });
+        expect((await post('/game/hypergryph/account/check-in', { roles })).status).toBe(200);
+        expect(getBoundGames).toHaveBeenCalledWith(expect.anything(), true, roles);
+    });
     it.each([null, [], {}, { username: 1, password: 'secret' }, { username: 'test' }])(
         'rejects invalid login body %j before the service',
         async (input) => {

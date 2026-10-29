@@ -22,7 +22,7 @@ model Admin {
 model User {
   id                Int                @id @default(autoincrement())
   username          String             @unique
-  email             String?
+  email             String?            @unique
   phone             String?
   password          String
   hypergryphAccount HypergryphAccount?
@@ -61,4 +61,15 @@ model PasswordResetChallenge {
   expiresAt BigInt
   sentAt    BigInt
   attempts  Int @default(0)
+}
+
+model RegistrationChallenge {
+  email     String @id
+  codeHash  String
+  expiresAt BigInt
+}
+
+model EmailDailyQuota {
+  day   String @id
+  count Int    @default(0)
 }

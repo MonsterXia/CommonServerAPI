@@ -1,11 +1,11 @@
 import bcrypt from 'bcryptjs';
+import { registerUser, sendRegistrationCode } from './registrationService';
 import { Context } from 'hono';
 import {
     SendEmailVerificationCodeRequestPayload,
     UserPasswordLoginRequestPayload,
     UserRegisterRequestPayload
 } from "@/model/user/user";
-import { bcryptSaltRounds } from '@/common/config/bcryptConfig';
 import { getPrismaClient } from '@/lib/prisma';
 import { clearAuthCookie, generateToken, setAuthCookie } from '@/lib/jwt';
 import { buildStandardServerResponse, businessStatusCode } from '@/util/hono';
@@ -15,9 +15,7 @@ import { validateEmail } from '@/common/validation/email';
 import { validatePasswordStrength } from '@/common/validation/password';
 import {
     checkVerificationCodeExists,
-    constantTimeEquals,
     generateVerificationCode,
-    getVerificationCode,
     storeVerificationCode,
     sendVerificationEmail,
     deleteVerificationCode,
@@ -157,89 +155,7 @@ export const sendEmailVerificationCodeParser = (data: any): StandardServerResult
     )
 }
 
-export const userRegisterService = async (c: Context, user: UserRegisterRequestPayload): Promise<StandardServerResult<any>> => {
-    try {
-        const exist = await checkUsernameExistService(c, user.username);
-        if (exist.success) {
-            return buildStandardServerResponse(
-                false,
-                'Username already exists',
-                null,
-                'Username already exists',
-                businessStatusCode.CONFLICT
-            )
-        }
-        const emailExist = await checkEmailExistService(c, user.email);
-        if (emailExist.success) {
-            return buildStandardServerResponse(
-                false,
-                'Email already exists',
-                null,
-                'Email already exists',
-                businessStatusCode.CONFLICT
-            )
-        }
-
-        // Verify registration code using shared utility
-        const verificationKey = `${VERIFICATION_CODE_KEY_PREFIX}${user.email}-register`;
-        const storedCode = await getVerificationCode(verificationKey);
-        
-        if (!storedCode) {
-            return buildStandardServerResponse(
-                false,
-                'Verification code expired or not found',
-                null,
-                'Verification code expired or not found. Please request a new verification code.',
-                businessStatusCode.BAD_REQUEST
-            )
-        }
-
-        if (!constantTimeEquals(storedCode, user.registrationCode)) {
-            return buildStandardServerResponse(
-                false,
-                'Invalid verification code',
-                null,
-                'Invalid verification code. Please check the code and try again.',
-                businessStatusCode.BAD_REQUEST
-            )
-        }
-
-        // Clean up used verification code
-        await deleteVerificationCode(verificationKey);
-
-        const hashedPassword = await bcrypt.hash(user.password, bcryptSaltRounds);
-        const newUser = await getPrismaClient().user.create({
-            data: {
-                username: user.username,
-                password: hashedPassword,
-                email: user.email
-            }
-        })
-
-        const token = await generateToken(c, { username: newUser.username, sessionVersion: newUser.sessionVersion });
-        setAuthCookie(c, token);
-        const { password: _, ...userWithoutPassword } = newUser;
-
-        return buildStandardServerResponse(
-            true,
-            'User registered successfully',
-            {
-                user: userWithoutPassword,
-                token
-            },
-            null,
-            businessStatusCode.CREATED
-        );
-    } catch (error) {
-        return buildStandardServerResponse(
-            false,
-            'User registration failed',
-            null,
-            error instanceof Error ? error.message : 'Unknown error',
-            businessStatusCode.INTERNAL_SERVER_ERROR
-        );
-    }
-}
+export const userRegisterService = registerUser;
 
 export const checkUsernameExistService = async (c: Context, username: string): Promise<StandardServerResult<boolean | null>> => {
     try {
@@ -460,18 +376,7 @@ export const getCurrentUserServiceInternal = async (c: Context): Promise<Standar
 
 export const sendEmailVerificationCodeService = async (c: Context, data: SendEmailVerificationCodeRequestPayload): Promise<StandardServerResult<any>> => {
     try {
-        if (data.type === 'register') {
-            const emailExist = await checkEmailExistService(c, data.email);
-            if (emailExist.success) {
-                return buildStandardServerResponse(
-                    false,
-                    'Email already exists',
-                    null,
-                    'Email already exists. Please use a different email address.',
-                    businessStatusCode.CONFLICT
-                )
-            }
-        }
+        if (data.type === 'register') return await sendRegistrationCode(c, data.email);
 
         // Generate and send verification code using shared utility
         const verificationCode = generateVerificationCode();
